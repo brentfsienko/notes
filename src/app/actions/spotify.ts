@@ -110,6 +110,10 @@ async function enrichPlaylistItemsWithTotals(
         }
       }),
     );
+    /* Small gap between batches so we do not stack bursts on top of list paging. */
+    if (i + ENRICH_TOTALS_CHUNK < sparse.length) {
+      await new Promise((r) => setTimeout(r, 80));
+    }
   }
 }
 
@@ -126,15 +130,13 @@ export async function fetchLibraryData() {
   const token = session.accessToken;
 
   try {
-    const [savedPreview, bundle] = await Promise.all([
-      getSavedTracks(token, 0, 1),
-      getAllUserPlaylists(token),
-    ]);
+    const savedPreview = await getSavedTracks(token, 0, 1);
+    const bundle = await getAllUserPlaylists(token);
 
     const likedTotal = (savedPreview?.total as number) ?? 0;
     const raw = bundle.items ?? [];
     const merged = raw.map((p: Record<string, unknown>) => ({ ...p }));
-    /** List `fields` usually include `tracks.total`; skip N-per-playlist detail calls here so first paint stays fast. */
+    await enrichPlaylistItemsWithTotals(token, merged);
 
     return { likedTotal, playlists: merged };
   } catch (e) {

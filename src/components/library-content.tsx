@@ -38,7 +38,7 @@ function GridIcon({ className }: { className?: string }) {
 }
 
 function playlistMetaLine(playlist: Playlist, mySpotifyId: string | undefined) {
-  const n = playlist.tracks?.total;
+  const n = playlist.tracks?.total ?? 0;
   const ownerLabel = playlist.owner?.display_name ?? "playlist";
   const mine = mySpotifyId && playlist.owner?.id === mySpotifyId;
   const parts: string[] = [];
@@ -46,9 +46,7 @@ function playlistMetaLine(playlist: Playlist, mySpotifyId: string | undefined) {
   if (mine) parts.push("yours");
   else if (playlist.owner?.id) parts.push(`by ${ownerLabel}`);
   else parts.push(ownerLabel);
-  const count =
-    typeof n === "number" && Number.isFinite(n) ? `${n} songs` : null;
-  return count ? `${parts.join(" · ")} · ${count}` : parts.join(" · ");
+  return `${parts.join(" · ")} · ${n} songs`;
 }
 
 export function LibraryContent() {

@@ -168,9 +168,8 @@ export async function getUserPlaylists(accessToken: string, offset = 0, limit = 
 }
 
 /**
- * Fetches every playlist from `/me/playlists`.
- * Uses at most 2 concurrent page requests when `total` is known (faster than strictly sequential,
- * but avoids the large bursts that caused 429s with full parallel paging).
+ * Fetches every playlist from `/me/playlists` one page at a time.
+ * Parallel paging was removed — it bursts the Web API and triggers 429 rate limits.
  */
 export async function getAllUserPlaylists(accessToken: string) {
   const limit = 50;
@@ -180,17 +179,9 @@ export async function getAllUserPlaylists(accessToken: string) {
 
   if (typeof total === "number" && total > items.length) {
     const pageCount = Math.ceil(total / limit);
-    for (let page = 1; page < pageCount; page += 2) {
-      const batch: Promise<{ items?: unknown[] }>[] = [
-        getUserPlaylists(accessToken, page * limit, limit),
-      ];
-      if (page + 1 < pageCount) {
-        batch.push(getUserPlaylists(accessToken, (page + 1) * limit, limit));
-      }
-      const pages = await Promise.all(batch);
-      for (const p of pages) {
-        items.push(...(p.items ?? []));
-      }
+    for (let page = 1; page < pageCount; page++) {
+      const p = await getUserPlaylists(accessToken, page * limit, limit);
+      items.push(...(p.items ?? []));
     }
     return { ...first, items };
   }
