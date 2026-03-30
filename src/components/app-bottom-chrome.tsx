@@ -53,7 +53,7 @@ export function AppBottomChrome() {
 
   return (
     <div
-      className={`fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-lg safe-bottom bg-bg transition-transform duration-300 ease-out will-change-transform ${
+      className={`fixed bottom-0 left-0 right-0 z-50 mx-auto max-w-lg safe-bottom bg-bg/95 backdrop-blur-sm transition-transform duration-300 ease-out will-change-transform ${
         retracted
           ? "pointer-events-none translate-y-full"
           : "translate-y-0"

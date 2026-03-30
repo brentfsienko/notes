@@ -8,11 +8,11 @@ export default async function Home() {
   return (
     <main className="flex flex-col items-center justify-center min-h-[100dvh] px-6 text-center">
       <div className="max-w-xs">
-        <h1 className="text-3xl font-semibold text-fg tracking-tight">
+        <h1 className="text-3xl font-light text-fg tracking-widest lowercase">
           oto
         </h1>
-        <p className="text-[15px] text-muted mt-4 leading-relaxed">
-          A quiet place for the stories
+        <p className="text-[15px] text-muted mt-6 leading-relaxed font-light">
+          a quiet place for the stories
           <br />
           behind your songs.
         </p>
@@ -25,16 +25,16 @@ export default async function Home() {
         >
           <button
             type="submit"
-            className="mt-10 w-full rounded-full bg-spotify-green py-3.5 text-[15px] font-bold text-bg active:bg-spotify-green-dim transition-colors"
+            className="mt-12 w-full rounded-lg border border-accent/40 bg-accent/10 py-3.5 text-[15px] font-medium text-accent active:bg-accent/20 transition-colors"
           >
-            Connect with Spotify
+            connect with spotify
           </button>
         </form>
 
-        <p className="text-faint text-xs mt-5 leading-relaxed">
-          We read &amp; save to your Spotify library.
+        <p className="text-faint text-xs mt-6 leading-relaxed">
+          we read &amp; save to your spotify library.
           <br />
-          Notes are stored privately in this app.
+          notes are stored privately in this app.
         </p>
       </div>
     </main>

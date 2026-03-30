@@ -35,7 +35,7 @@ export function ProfileContent() {
     return (
       <div className="flex flex-col items-center gap-4 pt-10 animate-pulse">
         <div className="w-20 h-20 rounded-full bg-elevated" />
-        <div className="h-5 bg-elevated rounded w-32" />
+        <div className="h-4 bg-elevated rounded w-32" />
         <div className="flex gap-8 mt-4">
           <div className="h-12 bg-elevated rounded w-20" />
           <div className="h-12 bg-elevated rounded w-20" />
@@ -53,7 +53,7 @@ export function ProfileContent() {
         <img
           src={avatar}
           alt=""
-          className="w-20 h-20 rounded-full object-cover"
+          className="w-20 h-20 rounded-full object-cover opacity-90"
         />
       ) : (
         <div className="w-20 h-20 rounded-full bg-elevated flex items-center justify-center">
@@ -63,22 +63,22 @@ export function ProfileContent() {
         </div>
       )}
 
-      <h2 className="text-lg font-semibold text-fg mt-4">
-        {profile?.display_name ?? "Listener"}
+      <h2 className="text-lg font-light text-fg mt-4 tracking-wide">
+        {profile?.display_name ?? "listener"}
       </h2>
 
-      <div className="flex gap-10 mt-8">
+      <div className="flex gap-12 mt-8">
         <div className="flex flex-col items-center">
-          <span className="text-2xl font-semibold text-fg tabular-nums">
-            {savedCount ?? "—"}
+          <span className="text-2xl font-light text-fg tabular-nums">
+            {savedCount ?? "\u2014"}
           </span>
-          <span className="text-xs text-muted mt-1">Saved songs</span>
+          <span className="text-xs text-muted mt-1">saved</span>
         </div>
         <div className="flex flex-col items-center">
-          <span className="text-2xl font-semibold text-fg tabular-nums">
-            {noteCount ?? "—"}
+          <span className="text-2xl font-light text-fg tabular-nums">
+            {noteCount ?? "\u2014"}
           </span>
-          <span className="text-xs text-muted mt-1">Notes</span>
+          <span className="text-xs text-muted mt-1">notes</span>
         </div>
       </div>
     </div>

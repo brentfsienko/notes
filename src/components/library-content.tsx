@@ -108,13 +108,13 @@ export function LibraryContent() {
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-1 px-2 pt-2">
+      <div className="flex flex-col gap-1 px-3 pt-3">
         {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="flex items-center gap-3 px-2 py-2.5 animate-pulse">
-            <div className="h-14 w-14 shrink-0 rounded-md bg-chip" />
+          <div key={i} className="flex items-center gap-3 px-1 py-3 animate-pulse">
+            <div className="h-12 w-12 shrink-0 rounded bg-elevated" />
             <div className="flex-1 space-y-2">
-              <div className="h-4 rounded bg-chip w-3/4" />
-              <div className="h-3 rounded bg-chip w-1/2" />
+              <div className="h-3.5 rounded bg-elevated w-3/4" />
+              <div className="h-3 rounded bg-elevated w-1/2" />
             </div>
           </div>
         ))}
@@ -124,10 +124,10 @@ export function LibraryContent() {
 
   if (tracks.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-        <p className="text-base font-medium text-fg">Nothing here yet</p>
-        <p className="mt-2 text-sm text-muted">
-          Save songs in Spotify or open Search to find more.
+      <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
+        <p className="text-sm font-light text-fg">nothing here yet</p>
+        <p className="mt-2 text-sm text-muted font-light">
+          save songs in spotify or use search to find more.
         </p>
       </div>
     );
@@ -138,11 +138,11 @@ export function LibraryContent() {
       <div className="sticky top-0 z-10 bg-bg px-4 pb-2 pt-2">
         <div className="relative">
           <svg
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
-            strokeWidth={2}
+            strokeWidth={1.5}
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
           </svg>
@@ -150,15 +150,15 @@ export function LibraryContent() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Find in your library"
-            className="w-full rounded-lg bg-chip py-2.5 pl-9 pr-4 text-sm text-fg placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-fg/20"
+            placeholder="find in your library"
+            className="w-full rounded-lg bg-elevated py-2.5 pl-9 pr-4 text-sm text-fg placeholder:text-faint focus:outline-none focus:ring-1 focus:ring-accent/30"
           />
         </div>
       </div>
 
       {visibleTracks.length === 0 ? (
-        <p className="px-4 py-8 text-center text-sm text-muted">
-          No songs match &ldquo;{search}&rdquo;
+        <p className="px-4 py-8 text-center text-sm text-muted font-light">
+          no songs match &ldquo;{search}&rdquo;
         </p>
       ) : (
         <div className="flex flex-col pb-4">
@@ -179,9 +179,9 @@ export function LibraryContent() {
           <button
             onClick={() => loadTracks(offset)}
             disabled={loadingMore}
-            className="rounded-full bg-chip px-6 py-2.5 text-sm font-medium text-fg active:bg-elevated disabled:opacity-50"
+            className="rounded-lg border border-border px-6 py-2.5 text-sm font-light text-muted active:bg-elevated disabled:opacity-50 transition-colors"
           >
-            {loadingMore ? "Loading\u2026" : "Load more"}
+            {loadingMore ? "loading\u2026" : "load more"}
           </button>
         </div>
       )}

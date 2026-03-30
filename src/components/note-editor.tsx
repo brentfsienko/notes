@@ -1,7 +1,6 @@
 "use client";
 
-import { Drawer } from "vaul";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 
 interface NoteEditorProps {
@@ -28,120 +27,135 @@ export function NoteEditor({
 }: NoteEditorProps) {
   const [body, setBody] = useState(initialNote);
   const [saving, setSaving] = useState(false);
+  const [visible, setVisible] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    if (open) setBody(initialNote);
+    if (open) {
+      setBody(initialNote);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => setVisible(true));
+      });
+      const t = setTimeout(() => textareaRef.current?.focus(), 380);
+      return () => clearTimeout(t);
+    } else {
+      setVisible(false);
+    }
   }, [initialNote, open]);
 
   useEffect(() => {
     if (!open) return;
-    const id = requestAnimationFrame(() => {
-      textareaRef.current?.scrollIntoView({
-        block: "center",
-        inline: "nearest",
-      });
-    });
-    return () => cancelAnimationFrame(id);
+    const orig = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = orig;
+    };
   }, [open]);
+
+  const handleClose = useCallback(() => {
+    setVisible(false);
+    setTimeout(() => onOpenChange(false), 300);
+  }, [onOpenChange]);
 
   async function handleSave() {
     setSaving(true);
     try {
       await onSave(body);
-      onOpenChange(false);
+      handleClose();
     } finally {
       setSaving(false);
     }
   }
 
+  if (!open) return null;
+
   return (
-    <Drawer.Root
-      open={open}
-      onOpenChange={onOpenChange}
-      fixed
-      repositionInputs={true}
-    >
-      <Drawer.Portal>
-        <Drawer.Overlay className="fixed inset-0 z-50 bg-black/60" />
-        <Drawer.Content
-          className="fixed inset-x-0 bottom-0 z-50 flex max-h-[calc(100svh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] flex-col rounded-t-2xl bg-surface outline-none"
-          style={{
-            paddingBottom: "max(1rem, env(safe-area-inset-bottom, 0px))",
-          }}
-        >
-          <Drawer.Handle className="mx-auto mb-2 mt-3 h-1.5 w-12 shrink-0 rounded-full bg-border" />
+    <div className="fixed inset-0 z-[60]">
+      <div
+        className={`absolute inset-0 bg-black/50 transition-opacity duration-300 ${
+          visible ? "opacity-100" : "opacity-0"
+        }`}
+        onClick={handleClose}
+        aria-hidden
+      />
 
-          <Drawer.Title className="sr-only">
-            Note for {track.name}
-          </Drawer.Title>
+      <div
+        className={`absolute inset-0 flex flex-col bg-bg transition-transform duration-300 ease-out will-change-transform ${
+          visible ? "translate-y-0" : "translate-y-full"
+        }`}
+        style={{
+          paddingTop: "env(safe-area-inset-top, 0px)",
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
+        }}
+        role="dialog"
+        aria-label={`Note for ${track.name}`}
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-border/60 px-4 py-3">
+          <button
+            type="button"
+            onClick={handleClose}
+            className="min-w-[60px] text-left text-sm text-muted active:text-fg transition-colors"
+          >
+            cancel
+          </button>
+          <p className="truncate text-sm font-light tracking-wide text-fg">note</p>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="min-w-[60px] text-right text-sm text-accent active:text-accent-dim disabled:opacity-50 transition-colors"
+          >
+            {saving ? "saving\u2026" : "save"}
+          </button>
+        </div>
 
-          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-5 pb-4 pt-1">
-            <div className="flex shrink-0 items-center gap-3">
-              {track.albumArt ? (
-                <Image
-                  src={track.albumArt}
-                  alt=""
-                  width={48}
-                  height={48}
-                  className="shrink-0 rounded-md"
-                />
-              ) : (
-                <div className="h-12 w-12 shrink-0 rounded-md bg-elevated" />
-              )}
-              <div className="min-w-0">
-                <p className="truncate text-[15px] font-medium text-fg">
-                  {track.name}
-                </p>
-                <p className="truncate text-sm text-muted">{track.artist}</p>
-              </div>
-            </div>
-
-            <textarea
-              ref={textareaRef}
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              onFocus={(e) => {
-                requestAnimationFrame(() => {
-                  e.target.scrollIntoView({
-                    block: "center",
-                    behavior: "smooth",
-                  });
-                });
-              }}
-              placeholder="Why does this song matter to you?"
-              rows={4}
-              className="min-h-[120px] w-full shrink-0 resize-none rounded-xl border border-border bg-elevated p-3.5 text-base leading-relaxed text-fg placeholder:text-faint focus:border-spotify-green focus:outline-none"
-              autoComplete="off"
-              autoCorrect="on"
-              autoFocus
+        <div className="flex shrink-0 items-center gap-3 px-4 py-3">
+          {track.albumArt ? (
+            <Image
+              src={track.albumArt}
+              alt=""
+              width={44}
+              height={44}
+              className="shrink-0 rounded"
             />
-
-            <div className="flex shrink-0 gap-3 pb-[env(safe-area-inset-bottom,0px)]">
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={saving}
-                className="flex-1 rounded-xl bg-spotify-green py-3 text-sm font-bold text-bg active:bg-spotify-green-dim disabled:opacity-50"
-              >
-                {saving ? "Saving\u2026" : "Save note"}
-              </button>
-              {initialNote && onDelete && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await onDelete();
-                    onOpenChange(false);
-                  }}
-                  className="rounded-xl border border-border px-5 py-3 text-sm text-muted active:bg-elevated"
-                >
-                  Remove
-                </button>
-              )}
-            </div>
+          ) : (
+            <div className="h-11 w-11 shrink-0 rounded bg-elevated" />
+          )}
+          <div className="min-w-0">
+            <p className="truncate text-[15px] font-normal text-fg">
+              {track.name}
+            </p>
+            <p className="truncate text-sm text-muted">{track.artist}</p>
           </div>
-        </Drawer.Content>
-      </Drawer.Portal>
-    </Drawer.Root>
+        </div>
+
+        <div className="min-h-0 flex-1 px-4 pb-2">
+          <textarea
+            ref={textareaRef}
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder="why does this song matter to you?"
+            className="h-full w-full resize-none bg-transparent text-[15px] leading-relaxed text-fg placeholder:text-faint/60 focus:outline-none"
+            autoComplete="off"
+            autoCorrect="on"
+          />
+        </div>
+
+        {initialNote && onDelete && (
+          <div className="shrink-0 border-t border-border/60 px-4 py-3">
+            <button
+              type="button"
+              onClick={async () => {
+                await onDelete();
+                handleClose();
+              }}
+              className="text-sm text-faint active:text-muted transition-colors"
+            >
+              delete note
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

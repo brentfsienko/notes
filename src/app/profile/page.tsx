@@ -10,7 +10,7 @@ export default async function ProfilePage() {
   return (
     <main className="flex min-h-[100dvh] flex-col pb-24">
       <header className="px-4 pt-6 pb-2">
-        <h1 className="text-2xl font-bold tracking-tight text-fg">Profile</h1>
+        <h1 className="text-xl font-light tracking-wide text-fg lowercase">profile</h1>
       </header>
 
       <ProfileContent />
@@ -24,9 +24,9 @@ export default async function ProfilePage() {
         >
           <button
             type="submit"
-            className="w-full rounded-full border border-border py-3.5 text-sm font-semibold text-fg active:bg-chip"
+            className="w-full rounded-lg border border-border py-3.5 text-sm font-light text-muted active:bg-elevated transition-colors"
           >
-            Sign out
+            sign out
           </button>
         </form>
       </div>

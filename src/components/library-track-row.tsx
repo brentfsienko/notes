@@ -27,7 +27,7 @@ export function LibraryTrackRow({
         onClick={onNoteClick}
         className="flex w-full flex-col text-left active:opacity-80"
       >
-        <div className="relative aspect-square w-full overflow-hidden rounded-md bg-elevated">
+        <div className="relative aspect-square w-full overflow-hidden rounded bg-elevated">
           {track.albumArt ? (
             <Image
               src={track.albumArt}
@@ -38,14 +38,14 @@ export function LibraryTrackRow({
             />
           ) : null}
         </div>
-        <p className="mt-2 line-clamp-2 text-sm font-semibold leading-snug text-fg">
+        <p className="mt-2 line-clamp-2 text-sm font-normal leading-snug text-fg">
           {track.name}
         </p>
         <p className="mt-0.5 line-clamp-2 text-xs text-muted">{track.artist}</p>
         {note ? (
-          <p className="mt-1 line-clamp-2 text-xs text-spotify-green">{note}</p>
+          <p className="mt-1 line-clamp-2 text-xs text-accent/80">{note}</p>
         ) : (
-          <p className="mt-1 text-xs text-faint">Tap to add note</p>
+          <p className="mt-1 text-xs text-faint">tap to add note</p>
         )}
       </button>
     );
@@ -55,26 +55,26 @@ export function LibraryTrackRow({
     <button
       type="button"
       onClick={onNoteClick}
-      className="flex w-full items-center gap-3 px-4 py-2.5 text-left active:bg-elevated/80"
+      className="flex w-full items-center gap-3 px-4 py-2.5 text-left active:bg-elevated/60 transition-colors"
     >
-      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md bg-elevated">
+      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded bg-elevated">
         {track.albumArt ? (
           <Image
             src={track.albumArt}
             alt=""
             fill
-            sizes="56px"
+            sizes="48px"
             className="object-cover"
           />
         ) : null}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-base font-semibold text-fg">{track.name}</p>
-        <p className="truncate text-sm text-muted">Song · {track.artist}</p>
+        <p className="truncate text-[15px] font-normal text-fg">{track.name}</p>
+        <p className="truncate text-sm text-muted">{track.artist}</p>
         {note ? (
-          <p className="mt-0.5 line-clamp-1 text-sm text-spotify-green">{note}</p>
+          <p className="mt-0.5 line-clamp-1 text-sm text-accent/80">{note}</p>
         ) : (
-          <p className="mt-0.5 text-sm text-faint">Add a note…</p>
+          <p className="mt-0.5 text-sm text-faint">add a note\u2026</p>
         )}
       </div>
     </button>

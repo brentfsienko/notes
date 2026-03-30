@@ -115,16 +115,16 @@ export function SearchContent() {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="What do you want to listen to?"
+            placeholder="what do you want to listen to?"
             enterKeyHint="search"
-            className="flex-1 rounded-full border-0 bg-chip px-4 py-3 text-sm text-fg placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-fg/20"
+            className="flex-1 rounded-lg border-0 bg-elevated px-4 py-2.5 text-sm text-fg placeholder:text-faint focus:outline-none focus:ring-1 focus:ring-accent/30"
           />
           <button
             type="submit"
             disabled={searching || !query.trim()}
-            className="rounded-full bg-fg px-5 py-3 text-sm font-bold text-bg active:opacity-90 disabled:opacity-40"
+            className="rounded-lg border border-border bg-elevated px-4 py-2.5 text-sm text-fg active:bg-chip disabled:opacity-30 transition-colors"
           >
-            {searching ? "\u2026" : "Go"}
+            {searching ? "\u2026" : "go"}
           </button>
         </form>
       </div>
@@ -136,10 +136,10 @@ export function SearchContent() {
               key={i}
               className="flex items-center gap-3 px-4 py-2.5 animate-pulse"
             >
-              <div className="h-14 w-14 shrink-0 rounded-md bg-chip" />
+              <div className="h-12 w-12 shrink-0 rounded bg-elevated" />
               <div className="flex-1 space-y-2">
-                <div className="h-4 w-3/4 rounded bg-chip" />
-                <div className="h-3 w-1/2 rounded bg-chip" />
+                <div className="h-3.5 w-3/4 rounded bg-elevated" />
+                <div className="h-3 w-1/2 rounded bg-elevated" />
               </div>
             </div>
           ))}
@@ -156,17 +156,17 @@ export function SearchContent() {
               onNoteClick={() => setEditingTrack(track)}
               action={
                 track.saved ? (
-                  <span className="px-2 text-xs font-semibold text-spotify-green">
-                    Saved
+                  <span className="px-2 text-xs text-accent/70">
+                    saved
                   </span>
                 ) : (
                   <button
                     type="button"
                     onClick={() => handleSave(track.id)}
                     disabled={savingIds.has(track.id)}
-                    className="rounded-full border border-fg/30 px-3 py-1.5 text-xs font-bold text-fg active:bg-chip disabled:opacity-50"
+                    className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted active:bg-elevated disabled:opacity-50 transition-colors"
                   >
-                    {savingIds.has(track.id) ? "\u2026" : "Save"}
+                    {savingIds.has(track.id) ? "\u2026" : "save"}
                   </button>
                 )
               }
@@ -177,14 +177,14 @@ export function SearchContent() {
 
       {hasSearched && !searching && results.length === 0 && (
         <div className="flex flex-col items-center justify-center px-5 py-16 text-center">
-          <p className="text-sm text-muted">No results found.</p>
+          <p className="text-sm text-muted font-light">no results found.</p>
         </div>
       )}
 
       {!hasSearched && (
         <div className="flex flex-col items-center justify-center px-5 py-20 text-center">
-          <p className="text-[15px] text-muted">
-            Find a song to save and annotate.
+          <p className="text-[15px] text-muted font-light">
+            find a song to save and annotate.
           </p>
         </div>
       )}

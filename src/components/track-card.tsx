@@ -22,24 +22,24 @@ export function TrackCard({ track, note, onNoteClick, action }: TrackCardProps) 
         onClick={onNoteClick}
         className="flex min-w-0 flex-1 items-center gap-3 text-left active:opacity-80"
       >
-        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md bg-elevated">
+        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded bg-elevated">
           {track.albumArt ? (
             <Image
               src={track.albumArt}
               alt=""
               fill
-              sizes="56px"
+              sizes="48px"
               className="object-cover"
             />
           ) : null}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-base font-semibold text-fg">{track.name}</p>
-          <p className="truncate text-sm text-muted">Song · {track.artist}</p>
+          <p className="truncate text-[15px] font-normal text-fg">{track.name}</p>
+          <p className="truncate text-sm text-muted">{track.artist}</p>
           {note ? (
-            <p className="mt-0.5 line-clamp-1 text-sm text-spotify-green">{note}</p>
+            <p className="mt-0.5 line-clamp-1 text-sm text-accent/80">{note}</p>
           ) : (
-            <p className="mt-0.5 text-sm text-faint">Add a note…</p>
+            <p className="mt-0.5 text-sm text-faint">add a note\u2026</p>
           )}
         </div>
       </button>
