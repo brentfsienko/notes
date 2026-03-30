@@ -28,7 +28,11 @@ export function LibraryContent() {
         fetchUserPlaylists(0, 50),
         fetchSavedTracksTotal(),
       ]);
-      setPlaylists(playlistData.items ?? []);
+      setPlaylists(
+        (playlistData.items ?? []).filter(
+          (p: Playlist) => p && p.id && p.name,
+        ),
+      );
       setLikedTotal(total);
     } catch (e) {
       console.error("Failed to load library:", e);
@@ -159,7 +163,7 @@ export function LibraryContent() {
             <div className="min-w-0 flex-1">
               <p className="truncate text-[15px] font-normal text-fg">{playlist.name}</p>
               <p className="truncate text-sm text-muted">
-                {playlist.owner.display_name} {"\u00B7"} {playlist.tracks.total} songs
+                {playlist.owner?.display_name ?? "playlist"} {"\u00B7"} {playlist.tracks?.total ?? 0} songs
               </p>
             </div>
             <svg className="h-4 w-4 shrink-0 text-faint" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

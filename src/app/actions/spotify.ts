@@ -49,7 +49,7 @@ export async function fetchSpotifyProfile() {
 export async function fetchSavedTracksTotal() {
   const token = await getAccessToken();
   const data = await getSavedTracks(token, 0, 1);
-  return data.total as number;
+  return (data?.total as number) ?? 0;
 }
 
 export async function fetchUserPlaylists(offset = 0, limit = 50) {
