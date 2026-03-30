@@ -6,6 +6,7 @@ import {
   searchTracks,
   saveTrack,
   checkSavedTracks,
+  getCurrentUser,
 } from "@/lib/spotify";
 
 async function getAccessToken() {
@@ -33,4 +34,15 @@ export async function saveSpotifyTrack(trackId: string) {
 export async function checkSpotifySavedTracks(trackIds: string[]) {
   const token = await getAccessToken();
   return checkSavedTracks(token, trackIds);
+}
+
+export async function fetchSpotifyProfile() {
+  const token = await getAccessToken();
+  return getCurrentUser(token);
+}
+
+export async function fetchSavedTracksTotal() {
+  const token = await getAccessToken();
+  const data = await getSavedTracks(token, 0, 1);
+  return data.total as number;
 }

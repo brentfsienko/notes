@@ -10,7 +10,7 @@ export default async function SearchPage() {
   return (
     <main className="flex flex-col min-h-[100dvh] pb-20">
       <header className="px-5 pt-6 pb-1">
-        <h1 className="text-lg font-semibold text-charcoal">Search</h1>
+        <h1 className="text-lg font-semibold text-fg">Search</h1>
       </header>
 
       <SearchContent />

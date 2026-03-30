@@ -5,6 +5,7 @@ const SCOPES = [
   "user-library-read",
   "user-library-modify",
   "user-read-email",
+  "user-read-private",
 ].join(" ");
 
 export const { handlers, auth, signIn, signOut } = NextAuth({

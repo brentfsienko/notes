@@ -24,8 +24,10 @@ export async function getSavedTracks(accessToken: string, offset = 0, limit = 20
 }
 
 export async function searchTracks(accessToken: string, query: string, limit = 20) {
+  const q = query.trim();
+  if (!q) return { tracks: { items: [] } };
   const res = await spotifyFetch(
-    `${API}/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}`,
+    `${API}/search?q=${encodeURIComponent(q)}&type=track&limit=${Math.min(limit, 50)}`,
     accessToken,
   );
   return res.json();
@@ -37,6 +39,11 @@ export async function saveTrack(accessToken: string, trackId: string) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ids: [trackId] }),
   });
+}
+
+export async function getCurrentUser(accessToken: string) {
+  const res = await spotifyFetch(`${API}/me`, accessToken);
+  return res.json();
 }
 
 export async function checkSavedTracks(

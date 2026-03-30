@@ -55,3 +55,10 @@ export async function deleteNote(trackId: string) {
     },
   });
 }
+
+export async function countNotes() {
+  const userId = await getUserId();
+  return prisma.note.count({
+    where: { spotifyUserId: userId },
+  });
+}

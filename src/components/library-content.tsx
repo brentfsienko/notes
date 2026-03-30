@@ -96,10 +96,10 @@ export function LibraryContent() {
       <div className="flex flex-col gap-1 pt-2">
         {Array.from({ length: 8 }).map((_, i) => (
           <div key={i} className="flex items-center gap-3 px-5 py-3.5 animate-pulse">
-            <div className="w-12 h-12 rounded-lg bg-sand/60" />
+            <div className="w-12 h-12 rounded-lg bg-elevated" />
             <div className="flex-1 space-y-2">
-              <div className="h-4 bg-sand/60 rounded w-3/4" />
-              <div className="h-3 bg-sand/60 rounded w-1/2" />
+              <div className="h-4 bg-elevated rounded w-3/4" />
+              <div className="h-3 bg-elevated rounded w-1/2" />
             </div>
           </div>
         ))}
@@ -110,8 +110,8 @@ export function LibraryContent() {
   if (tracks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 px-5 text-center">
-        <p className="text-bark text-[15px]">Your library is empty.</p>
-        <p className="text-stone text-sm mt-1">
+        <p className="text-muted text-[15px]">Your library is empty.</p>
+        <p className="text-faint text-sm mt-1">
           Save songs from Spotify or use the search tab.
         </p>
       </div>
@@ -120,7 +120,7 @@ export function LibraryContent() {
 
   return (
     <>
-      <div className="flex flex-col divide-y divide-sand/50">
+      <div className="flex flex-col divide-y divide-border/50">
         {tracks.map((track) => (
           <TrackCard
             key={track.id}
@@ -136,7 +136,7 @@ export function LibraryContent() {
           <button
             onClick={() => loadTracks(offset)}
             disabled={loadingMore}
-            className="px-6 py-2.5 rounded-xl border border-sand text-bark text-sm font-medium active:bg-sand/30 transition-colors disabled:opacity-50"
+            className="px-6 py-2.5 rounded-xl border border-border text-muted text-sm font-medium active:bg-elevated transition-colors disabled:opacity-50"
           >
             {loadingMore ? "Loading\u2026" : "Load more"}
           </button>

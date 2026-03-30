@@ -26,13 +26,13 @@ export function TrackCard({ track, note, onNoteClick, action }: TrackCardProps) 
           className="rounded-lg shrink-0 mt-0.5"
         />
       ) : (
-        <div className="w-12 h-12 rounded-lg shrink-0 mt-0.5 bg-sand" />
+        <div className="w-12 h-12 rounded-lg shrink-0 mt-0.5 bg-elevated" />
       )}
       <div className="flex-1 min-w-0">
-        <p className="font-medium text-charcoal truncate text-[15px] leading-tight">
+        <p className="font-medium text-fg truncate text-[15px] leading-tight">
           {track.name}
         </p>
-        <p className="text-sm text-bark truncate mt-0.5">{track.artist}</p>
+        <p className="text-sm text-muted truncate mt-0.5">{track.artist}</p>
         {note ? (
           <button
             onClick={onNoteClick}
@@ -43,7 +43,7 @@ export function TrackCard({ track, note, onNoteClick, action }: TrackCardProps) 
         ) : (
           <button
             onClick={onNoteClick}
-            className="mt-1.5 text-sm text-stone active:text-bark transition-colors"
+            className="mt-1.5 text-sm text-faint active:text-muted transition-colors"
           >
             Add a note&hellip;
           </button>

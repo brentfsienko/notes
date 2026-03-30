@@ -18,7 +18,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#FAF8F5",
+  themeColor: "#1A1714",
 };
 
 export default function RootLayout({
@@ -28,7 +28,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${geist.variable} h-full`}>
-      <body className="min-h-full bg-cream text-charcoal font-sans antialiased">
+      <body className="min-h-full bg-bg text-fg font-sans antialiased">
         <SessionProvider>
           <div className="mx-auto max-w-lg">{children}</div>
         </SessionProvider>
