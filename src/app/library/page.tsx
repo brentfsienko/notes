@@ -5,7 +5,13 @@ import { LibraryContent } from "@/components/library-content";
 import { LibraryHeader } from "@/components/library-header";
 
 export default async function LibraryPage() {
-  const session = await auth();
+  let session;
+  try {
+    session = await auth();
+  } catch {
+    redirect("/auth/signout");
+  }
+
   if (!session) redirect("/");
   if (session.error === "RefreshTokenError") redirect("/auth/signout");
 
