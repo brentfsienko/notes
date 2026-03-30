@@ -1,10 +1,15 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { AppBottomChrome } from "@/components/app-bottom-chrome";
-import { LibraryContent } from "@/components/library-content";
+import {
+  LibraryContent,
+  type LibraryServerPayload,
+  type Playlist,
+} from "@/components/library-content";
 import { LibraryHeader } from "@/components/library-header";
+import { loadLibraryInitial } from "@/lib/spotify-library-load";
 
-/** Allow chained playlist-page server actions to finish on Vercel (Pro plan supports up to 300s). */
+/** Spotify + cold start can exceed default serverless limits on Hobby. */
 export const maxDuration = 60;
 
 export default async function LibraryPage() {
@@ -18,13 +23,29 @@ export default async function LibraryPage() {
   if (!session) redirect("/");
   if (session.error === "RefreshTokenError") redirect("/auth/signout");
 
+  let initialLibrary: LibraryServerPayload | null = null;
+  let initialError: string | null = null;
+  try {
+    const data = await loadLibraryInitial();
+    initialLibrary = {
+      likedTotal: data.likedTotal,
+      playlists: data.playlists as Playlist[],
+      nextOffset: data.nextOffset,
+    };
+  } catch (e) {
+    initialError = e instanceof Error ? e.message : String(e);
+  }
+
   return (
     <main className="flex min-h-[100dvh] flex-col pb-24">
       <LibraryHeader
         imageUrl={session.user?.image}
         name={session.user?.name}
       />
-      <LibraryContent />
+      <LibraryContent
+        initialLibrary={initialLibrary}
+        initialError={initialError}
+      />
       <AppBottomChrome />
     </main>
   );

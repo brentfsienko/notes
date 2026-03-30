@@ -11,7 +11,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
 async function libraryJsonFetch<T>(url: string): Promise<T> {
-  const res = await fetch(url, { credentials: "same-origin" });
+  const res = await fetch(url, {
+    credentials: "same-origin",
+    cache: "no-store",
+  });
   const body = (await res.json().catch(() => ({}))) as { error?: string };
   if (!res.ok) {
     throw new Error(
@@ -33,7 +36,7 @@ const MAX_PLAYLIST_PAGES = 80;
  */
 const MIN_MS_BETWEEN_PLAYLIST_PAGES = 550;
 
-interface Playlist {
+export interface Playlist {
   id: string;
   name: string;
   owner?: { id?: string; display_name?: string };
@@ -78,24 +81,48 @@ function playlistMetaLine(playlist: Playlist, mySpotifyId: string | undefined) {
   return count ? `${parts.join(" · ")} · ${count}` : parts.join(" · ");
 }
 
-export function LibraryContent() {
+export type LibraryServerPayload = {
+  likedTotal: number;
+  playlists: Playlist[];
+  nextOffset: number | null;
+};
+
+export function LibraryContent({
+  initialLibrary,
+  initialError,
+}: {
+  initialLibrary: LibraryServerPayload | null;
+  initialError: string | null;
+}) {
   const { data: session } = useSession();
   const mySpotifyId = session?.spotifyId;
 
-  const [playlists, setPlaylists] = useState<Playlist[]>([]);
-  const [likedTotal, setLikedTotal] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  /** Extra pages after the first (from `fetchLibraryInitial`); null = no more from Spotify. */
-  const [playlistNextOffset, setPlaylistNextOffset] = useState<number | null>(null);
-  const [playlistPagesLoaded, setPlaylistPagesLoaded] = useState(0);
+  const [playlists, setPlaylists] = useState<Playlist[]>(
+    () => initialLibrary?.playlists ?? [],
+  );
+  const [likedTotal, setLikedTotal] = useState<number | null>(
+    () => initialLibrary?.likedTotal ?? null,
+  );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(() => initialError);
+  /** Extra pages after the first (from server or `/api/library/initial`); null = no more from Spotify. */
+  const [playlistNextOffset, setPlaylistNextOffset] = useState<number | null>(
+    () => initialLibrary?.nextOffset ?? null,
+  );
+  const [playlistPagesLoaded, setPlaylistPagesLoaded] = useState(() =>
+    initialLibrary ? 1 : 0,
+  );
   const [loadingMore, setLoadingMore] = useState(false);
   const [playlistPageError, setPlaylistPageError] = useState<string | null>(null);
 
   const lastPlaylistPageAtRef = useRef(0);
   const loadingMoreInFlightRef = useRef(false);
-  const loadMorePlaylistsRef = useRef<() => Promise<void>>(async () => {});
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (initialLibrary) {
+      lastPlaylistPageAtRef.current = Date.now();
+    }
+  }, [initialLibrary]);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("recent");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
@@ -185,8 +212,6 @@ export function LibraryContent() {
     waitPlaylistPageGap,
   ]);
 
-  loadMorePlaylistsRef.current = loadMorePlaylists;
-
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -222,26 +247,6 @@ export function LibraryContent() {
       setLoading(false);
     }
   }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  /** Lazy-load the next playlist page when the sentinel is near the viewport. */
-  useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el || playlistNextOffset === null) return;
-
-    const obs = new IntersectionObserver(
-      (entries) => {
-        const hit = entries.some((e) => e.isIntersecting);
-        if (hit) void loadMorePlaylistsRef.current();
-      },
-      { root: null, rootMargin: "280px", threshold: 0 },
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [playlistNextOffset, playlists.length]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return playlists;
@@ -484,7 +489,6 @@ export function LibraryContent() {
 
         {playlistNextOffset !== null && (
           <div className="flex flex-col items-center gap-2 px-4 pb-6 pt-4">
-            <div ref={sentinelRef} className="h-8 w-full shrink-0" aria-hidden />
             {loadingMore && (
               <p className="text-xs text-muted">loading more playlists…</p>
             )}

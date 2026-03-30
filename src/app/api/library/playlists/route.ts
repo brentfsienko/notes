@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { loadUserPlaylistsPage } from "@/lib/spotify-library-load";
 
+export const maxDuration = 60;
+export const dynamic = "force-dynamic";
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const offsetRaw = searchParams.get("offset") ?? "0";

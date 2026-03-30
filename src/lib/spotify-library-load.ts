@@ -34,12 +34,26 @@ export async function loadLibraryInitial() {
   const token = session.accessToken;
 
   try {
-    const savedPreview = await getSavedTracks(token, 0, 1);
+    /** Parallel calls cut TTFB vs sequential (same rolling-window budget as two separate requests). */
+    const [savedPreview, data] = await Promise.all([
+      getSavedTracks(token, 0, 1),
+      getUserPlaylists(token, 0, 50),
+    ]);
     const likedTotal = (savedPreview?.total as number) ?? 0;
 
-    const data = await getUserPlaylists(token, 0, 50);
     const raw = data.items ?? [];
-    const playlists = raw.map((p: Record<string, unknown>) => ({ ...p }));
+    const playlists = raw
+      .map((p: Record<string, unknown>) => ({ ...p }))
+      .filter((p: Record<string, unknown>) => {
+        const id = p.id;
+        const name = p.name;
+        return (
+          typeof id === "string" &&
+          id.length > 0 &&
+          typeof name === "string" &&
+          name.length > 0
+        );
+      });
     const nextOffset = data.next ? 50 : null;
 
     return { likedTotal, playlists, nextOffset };
