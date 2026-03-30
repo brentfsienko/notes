@@ -109,77 +109,72 @@ export async function getPlaylistDetails(accessToken: string, playlistId: string
 }
 
 /**
- * Spotify often returns 403 for playlist items depending on `market`.
- * Try several query shapes (reports vary: no market vs from_token vs ISO country).
+ * Fetch tracks for a playlist.
+ *
+ * Spotify's `/playlists/{id}/tracks` endpoint returns 403 for many
+ * development-mode apps. The workaround is to use `GET /playlists/{id}`
+ * which embeds the first 100 tracks in the response and always works.
  */
 export async function getPlaylistTracks(accessToken: string, playlistId: string, offset = 0, limit = 50) {
   const o = clampOffset(offset);
   const l = clampPageLimit(limit);
   const base = `${API}/playlists/${encodeURIComponent(playlistId)}/tracks`;
 
-  const paramVariants: URLSearchParams[] = [
-    // Only request tracks to avoid episodes/local-episode edge cases.
-    new URLSearchParams({ offset: String(o), limit: String(l), additional_types: "track" }),
-    new URLSearchParams({ offset: String(o), limit: String(l), market: "from_token", additional_types: "track" }),
-  ];
-
-  let last403: Error | null = null;
-
-  for (const params of paramVariants) {
-    try {
-      const res = await spotifyFetch(`${base}?${params.toString()}`, accessToken);
-      return res.json();
-    } catch (e) {
-      if (isSpotify403(e)) {
-        last403 = e instanceof Error ? e : new Error(String(e));
-        continue;
-      }
-      throw e;
-    }
-  }
-
-  let country: string | undefined;
+  // Try the dedicated tracks endpoint first (cheapest).
   try {
-    const me = await getCurrentUser(accessToken);
-    country = typeof me.country === "string" ? me.country : undefined;
-  } catch {
-    /* ignore */
-  }
-
-  if (country) {
-    try {
-      const params = new URLSearchParams({
-        offset: String(o),
-        limit: String(l),
-        market: country,
-        additional_types: "track",
-      });
-      const res = await spotifyFetch(`${base}?${params.toString()}`, accessToken);
-      return res.json();
-    } catch (e) {
-      if (!isSpotify403(e)) throw e;
-      last403 = e instanceof Error ? e : new Error(String(e));
-    }
-  }
-
-  // Final fallback: use the playlist's tracks.href (some accounts work only via this URL).
-  try {
-    const details = await getPlaylistDetails(accessToken, playlistId);
-    const href = typeof details?.tracks?.href === "string" ? (details.tracks.href as string) : undefined;
-    if (href) {
-      const u = new URL(href);
-      u.searchParams.set("offset", String(o));
-      u.searchParams.set("limit", String(l));
-      u.searchParams.set("additional_types", "track");
-      // If market wasn't already set by Spotify, try from_token first.
-      if (!u.searchParams.get("market")) u.searchParams.set("market", "from_token");
-      const res = await spotifyFetch(u.toString(), accessToken);
-      return res.json();
-    }
+    const params = new URLSearchParams({
+      offset: String(o),
+      limit: String(l),
+      additional_types: "track",
+    });
+    const res = await spotifyFetch(`${base}?${params}`, accessToken);
+    return res.json();
   } catch (e) {
     if (!isSpotify403(e)) throw e;
-    last403 = e instanceof Error ? e : new Error(String(e));
   }
 
-  throw last403 ?? new Error("Spotify 403: could not load playlist tracks");
+  // Fallback: GET /playlists/{id} (full object) always returns 200
+  // and includes `tracks` with up to 100 items.
+  const res = await spotifyFetch(
+    `${API}/playlists/${encodeURIComponent(playlistId)}`,
+    accessToken,
+  );
+  const data = await res.json();
+
+  if (!data?.tracks) {
+    throw new Error("Spotify returned no tracks for this playlist");
+  }
+
+  const tracks = data.tracks as {
+    items: unknown[];
+    next: string | null;
+    total: number;
+    offset: number;
+  };
+
+  // The full-playlist endpoint starts at offset 0 with up to 100 items.
+  // If the caller asked for offset 0, we can return it directly (sliced to limit).
+  if (o === 0) {
+    return {
+      items: tracks.items.slice(0, l),
+      next: tracks.items.length > l ? "more" : tracks.next,
+      total: tracks.total,
+      offset: 0,
+    };
+  }
+
+  // For offset > 0: the full-playlist response only has items 0-99.
+  // Return the slice if available, otherwise return empty to signal "no more".
+  if (o < tracks.items.length) {
+    const slice = tracks.items.slice(o, o + l);
+    return {
+      items: slice,
+      next: o + l < tracks.items.length ? "more" : null,
+      total: tracks.total,
+      offset: o,
+    };
+  }
+
+  // Offset is beyond what the full-playlist response includes.
+  return { items: [], next: null, total: tracks.total, offset: o };
 }
