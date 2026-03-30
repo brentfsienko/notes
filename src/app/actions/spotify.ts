@@ -73,52 +73,13 @@ export async function fetchSavedTracksTotal() {
   return (data?.total as number) ?? 0;
 }
 
-/** Keep small to avoid 429 when many playlists lack `tracks.total` in list responses. */
-const ENRICH_TOTALS_CHUNK = 6;
-
-async function enrichPlaylistItemsWithTotals(
-  token: string,
-  merged: Record<string, unknown>[],
-) {
-  const sparse = merged
-    .map((p: Record<string, unknown>, index: number) => ({ p, index }))
-    .filter(
-      (row: { p: Record<string, unknown>; index: number }) =>
-        typeof row.p.id === "string" &&
-        typeof (row.p.tracks as { total?: number } | undefined)?.total !== "number",
-    );
-  if (sparse.length === 0) return;
-
-  for (let i = 0; i < sparse.length; i += ENRICH_TOTALS_CHUNK) {
-    const chunk = sparse.slice(i, i + ENRICH_TOTALS_CHUNK);
-    await Promise.all(
-      chunk.map(async (row: { p: Record<string, unknown>; index: number }) => {
-        const { p, index } = row;
-        try {
-          const d = await getPlaylistDetails(token, p.id as string);
-          const total = d?.tracks?.total;
-          if (typeof total === "number") {
-            const cur = merged[index] as { tracks?: { href?: string; total?: number } };
-            merged[index] = {
-              ...cur,
-              tracks: { ...cur.tracks, total },
-            };
-          }
-        } catch {
-          /* ignore */
-        }
-      }),
-    );
-  }
-}
-
+/**
+ * List playlists for one `/me/playlists` page only.
+ * Does not call `getPlaylistDetails` per row — that N+1 pattern blew serverless timeouts and rate limits on large libraries.
+ */
 export async function fetchUserPlaylists(offset = 0, limit = 50) {
   const token = await getAccessTokenForPlaylists();
-  const data = await getUserPlaylists(token, offset, limit);
-  const items = data.items ?? [];
-  const merged = items.map((p: Record<string, unknown>) => ({ ...p }));
-  await enrichPlaylistItemsWithTotals(token, merged);
-  return { ...data, items: merged };
+  return getUserPlaylists(token, offset, limit);
 }
 
 export async function fetchPlaylistDetails(playlistId: string) {

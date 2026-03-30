@@ -94,23 +94,19 @@ export function LibraryContent() {
     setLoading(true);
     setError(null);
     try {
-      const [total] = await Promise.all([
-        fetchSavedTracksTotal(),
-        (async () => {
-          const merged: Playlist[] = [];
-          let offset = 0;
-          for (;;) {
-            const playlistData = await fetchUserPlaylists(offset, 50);
-            const items = (playlistData.items ?? []).filter(
-              (p: Playlist) => p && p.id && p.name,
-            ) as Playlist[];
-            merged.push(...items);
-            if (!playlistData.next) break;
-            offset += 50;
-          }
-          setPlaylists(merged);
-        })(),
-      ]);
+      const total = await fetchSavedTracksTotal();
+      const merged: Playlist[] = [];
+      let offset = 0;
+      for (;;) {
+        const playlistData = await fetchUserPlaylists(offset, 50);
+        const items = (playlistData.items ?? []).filter(
+          (p: Playlist) => p && p.id && p.name,
+        ) as Playlist[];
+        merged.push(...items);
+        if (!playlistData.next) break;
+        offset += 50;
+      }
+      setPlaylists(merged);
       setLikedTotal(total);
     } catch (e) {
       console.error("Failed to load library:", e);
