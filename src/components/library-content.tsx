@@ -17,10 +17,13 @@ interface Playlist {
 
 type SortKey = "recent" | "name-asc" | "name-desc" | "owner";
 type ViewMode = "list" | "grid";
+/** Which playlists to show: everything in your Spotify library, only yours, or only followed / other creators. */
+type PlaylistScope = "all" | "mine" | "others";
 
 const SORT_STORAGE = "oto-library-sort";
 const VIEW_STORAGE = "oto-library-view";
-const MINE_ONLY_STORAGE = "oto-library-mine-only";
+const SCOPE_STORAGE = "oto-library-playlist-scope";
+const LEGACY_MINE_ONLY_STORAGE = "oto-library-mine-only";
 
 function ListIcon({ className }: { className?: string }) {
   return (
@@ -61,7 +64,7 @@ export function LibraryContent() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("recent");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
-  const [mineOnly, setMineOnly] = useState(false);
+  const [playlistScope, setPlaylistScope] = useState<PlaylistScope>("all");
 
   useEffect(() => {
     try {
@@ -71,7 +74,12 @@ export function LibraryContent() {
       }
       const v = localStorage.getItem(VIEW_STORAGE);
       if (v === "list" || v === "grid") setViewMode(v);
-      if (localStorage.getItem(MINE_ONLY_STORAGE) === "1") setMineOnly(true);
+      const scope = localStorage.getItem(SCOPE_STORAGE);
+      if (scope === "all" || scope === "mine" || scope === "others") {
+        setPlaylistScope(scope);
+      } else if (localStorage.getItem(LEGACY_MINE_ONLY_STORAGE) === "1") {
+        setPlaylistScope("mine");
+      }
     } catch {
       /* ignore */
     }
@@ -95,11 +103,11 @@ export function LibraryContent() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(MINE_ONLY_STORAGE, mineOnly ? "1" : "0");
+      localStorage.setItem(SCOPE_STORAGE, playlistScope);
     } catch {
       /* ignore */
     }
-  }, [mineOnly]);
+  }, [playlistScope]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -136,20 +144,25 @@ export function LibraryContent() {
     load();
   }, [load]);
 
-  const ownedOrAll = useMemo(() => {
-    if (!mineOnly || !mySpotifyId) return playlists;
-    return playlists.filter((p) => p.owner?.id === mySpotifyId);
-  }, [playlists, mineOnly, mySpotifyId]);
+  const scopedPlaylists = useMemo(() => {
+    if (!mySpotifyId || playlistScope === "all") return playlists;
+    if (playlistScope === "mine") {
+      return playlists.filter((p) => p.owner?.id === mySpotifyId);
+    }
+    return playlists.filter(
+      (p) => p.owner?.id && p.owner.id !== mySpotifyId,
+    );
+  }, [playlists, playlistScope, mySpotifyId]);
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return ownedOrAll;
+    if (!search.trim()) return scopedPlaylists;
     const q = search.toLowerCase();
-    return ownedOrAll.filter(
+    return scopedPlaylists.filter(
       (p) =>
         p.name.toLowerCase().includes(q) ||
         (p.owner?.display_name ?? "").toLowerCase().includes(q),
     );
-  }, [ownedOrAll, search]);
+  }, [scopedPlaylists, search]);
 
   const sortedPlaylists = useMemo(() => {
     if (sortBy === "recent") return filtered;
@@ -259,18 +272,24 @@ export function LibraryContent() {
             </button>
           </div>
         </div>
-        <label className="mt-2 flex cursor-pointer items-center gap-2 px-0.5 text-xs text-muted">
-          <input
-            type="checkbox"
-            className="rounded border-border text-accent focus:ring-accent/30"
-            checked={mineOnly}
-            onChange={(e) => setMineOnly(e.target.checked)}
-          />
-          <span className="lowercase">only playlists I own</span>
-        </label>
-        <p className="mt-1 px-0.5 text-[11px] leading-snug text-faint lowercase">
-          following or collaborative playlists appear because spotify lists them in your library; turn this on to hide anything you don&apos;t own.
-        </p>
+        <div className="mt-2 space-y-1">
+          <label className="sr-only" htmlFor="library-playlist-scope">
+            which playlists to show
+          </label>
+          <select
+            id="library-playlist-scope"
+            value={playlistScope}
+            onChange={(e) => setPlaylistScope(e.target.value as PlaylistScope)}
+            className="w-full rounded-lg border border-border bg-elevated py-2 pl-3 pr-8 text-xs lowercase text-fg focus:outline-none focus:ring-1 focus:ring-accent/30"
+          >
+            <option value="all">all playlists (yours + saved from others)</option>
+            <option value="mine">only playlists I created</option>
+            <option value="others">saved from other creators</option>
+          </select>
+          <p className="px-0.5 text-[11px] leading-snug text-faint lowercase">
+            playlists you follow or save from someone else show up in your spotify library — pick &ldquo;saved from other creators&rdquo; to focus on those, or &ldquo;all&rdquo; to browse everything.
+          </p>
+        </div>
       </div>
 
       <div className="flex flex-col pb-4">
@@ -386,7 +405,18 @@ export function LibraryContent() {
           </div>
         )}
 
-        {!showLiked && filtered.length === 0 && (
+        {sortedPlaylists.length === 0 &&
+          !search.trim() &&
+          playlistScope !== "all" &&
+          playlists.length > 0 && (
+            <p className="px-4 py-6 text-center text-sm text-muted lowercase">
+              {playlistScope === "mine"
+                ? "no playlists you created in your library yet."
+                : "no playlists from other creators in your library yet — follow or save a playlist in spotify first."}
+            </p>
+          )}
+
+        {!showLiked && filtered.length === 0 && search.trim() && (
           <p className="px-4 py-8 text-center text-sm text-muted">
             {`no results for \u201C${search}\u201D`}
           </p>
