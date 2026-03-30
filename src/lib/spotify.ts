@@ -26,7 +26,7 @@ async function spotifyFetch(url: string, accessToken: string, init?: RequestInit
     headers: { ...headers(accessToken), ...init?.headers },
   });
   if (!res.ok) {
-    throw new Error(`Spotify ${res.status}: ${await res.text()}`);
+    throw new Error(`Spotify ${res.status} (${url}): ${await res.text()}`);
   }
   return res;
 }
@@ -133,32 +133,51 @@ export async function getPlaylistTracks(accessToken: string, playlistId: string,
     if (!isSpotify403(e)) throw e;
   }
 
-  // Fallback: GET /playlists/{id} (full object) always returns 200
-  // and includes `tracks` with up to 100 items.
+  // Fallback: request the playlist itself, but *force* Spotify to include track items.
+  // This avoids the 403 on `/tracks` for many development-mode apps, and also avoids
+  // the "tracks object without items" shape.
+  const playlistParams = new URLSearchParams({
+    offset: String(o),
+    limit: String(l),
+    market: "from_token",
+    additional_types: "track",
+    // Keep payload small but ensure `tracks.items` is present.
+    fields:
+      "tracks.items(added_at,track(id,name,artists(name),album(images),type)),tracks.next,tracks.total",
+  });
   const res = await spotifyFetch(
-    `${API}/playlists/${encodeURIComponent(playlistId)}`,
+    `${API}/playlists/${encodeURIComponent(playlistId)}?${playlistParams.toString()}`,
     accessToken,
   );
   const data = await res.json();
 
-  if (!data?.tracks) {
-    throw new Error("Spotify returned no tracks for this playlist");
-  }
+  const tracks = (data?.tracks ?? null) as
+    | {
+        items?: unknown[];
+        next?: string | null;
+        total?: number;
+        offset?: number;
+      }
+    | null;
 
-  const tracks = data.tracks as {
-    items: unknown[];
-    next: string | null;
-    total: number;
-    offset: number;
-  };
+  // Some playlists return metadata but omit embedded track items.
+  // Don't crash the page—return an empty list so the UI can render.
+  if (!tracks || !Array.isArray(tracks.items)) {
+    return {
+      items: [],
+      next: null,
+      total: typeof tracks?.total === "number" ? tracks.total : 0,
+      offset: o,
+    };
+  }
 
   // The full-playlist endpoint starts at offset 0 with up to 100 items.
   // If the caller asked for offset 0, we can return it directly (sliced to limit).
   if (o === 0) {
     return {
       items: tracks.items.slice(0, l),
-      next: tracks.items.length > l ? "more" : tracks.next,
-      total: tracks.total,
+      next: tracks.items.length > l ? "more" : (tracks.next ?? null),
+      total: typeof tracks.total === "number" ? tracks.total : tracks.items.length,
       offset: 0,
     };
   }
@@ -170,11 +189,16 @@ export async function getPlaylistTracks(accessToken: string, playlistId: string,
     return {
       items: slice,
       next: o + l < tracks.items.length ? "more" : null,
-      total: tracks.total,
+      total: typeof tracks.total === "number" ? tracks.total : tracks.items.length,
       offset: o,
     };
   }
 
   // Offset is beyond what the full-playlist response includes.
-  return { items: [], next: null, total: tracks.total, offset: o };
+  return {
+    items: [],
+    next: null,
+    total: typeof tracks.total === "number" ? tracks.total : tracks.items.length,
+    offset: o,
+  };
 }
