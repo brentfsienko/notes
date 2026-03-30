@@ -112,31 +112,42 @@ export async function getPlaylistDetails(accessToken: string, playlistId: string
 /**
  * Fetch tracks for a playlist.
  *
- * Spotify's `/playlists/{id}/tracks` endpoint returns 403 for many
- * development-mode apps. The workaround is to use `GET /playlists/{id}`
- * which embeds the first 100 tracks in the response and always works.
+ * Spotify recommends `GET /playlists/{id}/items` ("Get playlist items").
+ * The older `/tracks` path is deprecated but kept as a secondary try.
+ * If both 403, fall back to `GET /playlists/{id}` with `fields` so embedded
+ * `tracks.items` may still load.
  */
 export async function getPlaylistTracks(accessToken: string, playlistId: string, offset = 0, limit = 50) {
   const o = clampOffset(offset);
   const l = clampPageLimit(limit);
-  const base = `${API}/playlists/${encodeURIComponent(playlistId)}/tracks`;
+  const id = encodeURIComponent(playlistId);
+  const itemsUrl = `${API}/playlists/${id}/items`;
+  const tracksLegacyUrl = `${API}/playlists/${id}/tracks`;
 
-  // Try the dedicated tracks endpoint first (cheapest).
-  try {
-    const params = new URLSearchParams({
+  const listParams = () =>
+    new URLSearchParams({
       offset: String(o),
       limit: String(l),
       additional_types: "track",
     });
-    const res = await spotifyFetch(`${base}?${params}`, accessToken);
+
+  // 1) Current API: /items
+  try {
+    const res = await spotifyFetch(`${itemsUrl}?${listParams()}`, accessToken);
     return res.json();
   } catch (e) {
     if (!isSpotify403(e)) throw e;
   }
 
-  // Fallback: request the playlist itself, but *force* Spotify to include track items.
-  // This avoids the 403 on `/tracks` for many development-mode apps, and also avoids
-  // the "tracks object without items" shape.
+  // 2) Deprecated alias: /tracks (some stacks still route differently)
+  try {
+    const res = await spotifyFetch(`${tracksLegacyUrl}?${listParams()}`, accessToken);
+    return res.json();
+  } catch (e) {
+    if (!isSpotify403(e)) throw e;
+  }
+
+  // 3) Fallback: request the playlist itself, but *force* Spotify to include track items.
   const playlistParams = new URLSearchParams({
     offset: String(o),
     limit: String(l),
