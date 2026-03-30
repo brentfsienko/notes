@@ -1,5 +1,21 @@
 const API = "https://api.spotify.com/v1";
 
+/** Spotify requires limit in [1, 50]; NaN/0/negative must never reach the query string. */
+function clampSearchLimit(limit: number | undefined): number {
+  const n = typeof limit === "number" && Number.isFinite(limit) ? Math.trunc(limit) : 20;
+  return Math.max(1, Math.min(n, 50));
+}
+
+function clampPageLimit(limit: number | undefined): number {
+  const n = typeof limit === "number" && Number.isFinite(limit) ? Math.trunc(limit) : 20;
+  return Math.max(1, Math.min(n, 50));
+}
+
+function clampOffset(offset: number | undefined): number {
+  const n = typeof offset === "number" && Number.isFinite(offset) ? Math.trunc(offset) : 0;
+  return Math.max(0, n);
+}
+
 function headers(accessToken: string) {
   return { Authorization: `Bearer ${accessToken}` };
 }
@@ -16,18 +32,21 @@ async function spotifyFetch(url: string, accessToken: string, init?: RequestInit
 }
 
 export async function getSavedTracks(accessToken: string, offset = 0, limit = 20) {
+  const o = clampOffset(offset);
+  const l = clampPageLimit(limit);
   const res = await spotifyFetch(
-    `${API}/me/tracks?offset=${offset}&limit=${limit}`,
+    `${API}/me/tracks?offset=${o}&limit=${l}`,
     accessToken,
   );
   return res.json();
 }
 
 export async function searchTracks(accessToken: string, query: string, limit = 20) {
-  const q = query.trim();
+  const q = typeof query === "string" ? query.trim() : "";
   if (!q) return { tracks: { items: [] } };
+  const l = clampSearchLimit(limit);
   const res = await spotifyFetch(
-    `${API}/search?q=${encodeURIComponent(q)}&type=track&limit=${Math.min(limit, 50)}`,
+    `${API}/search?q=${encodeURIComponent(q)}&type=track&limit=${l}`,
     accessToken,
   );
   return res.json();

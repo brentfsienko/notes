@@ -23,7 +23,9 @@ export async function fetchSavedTracks(offset = 0, limit = 20) {
 
 export async function searchSpotifyTracks(query: string) {
   const token = await getAccessToken();
-  return searchTracks(token, query);
+  const q = typeof query === "string" ? query.trim() : "";
+  if (!q) return { tracks: { items: [] } };
+  return searchTracks(token, q);
 }
 
 export async function saveSpotifyTrack(trackId: string) {
