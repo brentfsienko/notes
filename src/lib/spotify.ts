@@ -31,8 +31,9 @@ async function spotifyFetch(url: string, accessToken: string, init?: RequestInit
   return res;
 }
 
+/** Must match `spotifyFetch` errors: `Spotify 403 (url): ...` — note there is no colon after 403. */
 function isSpotify403(err: unknown): boolean {
-  return err instanceof Error && err.message.includes("Spotify 403:");
+  return err instanceof Error && err.message.includes("Spotify 403");
 }
 
 export async function getSavedTracks(accessToken: string, offset = 0, limit = 20) {
