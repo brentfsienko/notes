@@ -31,6 +31,10 @@ async function spotifyFetch(url: string, accessToken: string, init?: RequestInit
   return res;
 }
 
+function isSpotify403(err: unknown): boolean {
+  return err instanceof Error && err.message.includes("Spotify 403:");
+}
+
 export async function getSavedTracks(accessToken: string, offset = 0, limit = 20) {
   const o = clampOffset(offset);
   const l = clampPageLimit(limit);
@@ -88,25 +92,73 @@ export async function getUserPlaylists(accessToken: string, offset = 0, limit = 
 }
 
 export async function getPlaylistDetails(accessToken: string, playlistId: string) {
-  const res = await spotifyFetch(
-    `${API}/playlists/${encodeURIComponent(playlistId)}?fields=id,name,description,images,owner(display_name),tracks(total)`,
-    accessToken,
-  );
-  return res.json();
+  const narrow = `${API}/playlists/${encodeURIComponent(playlistId)}?fields=id,name,description,images,owner(display_name),tracks(total)`;
+  try {
+    const res = await spotifyFetch(narrow, accessToken);
+    return res.json();
+  } catch (e) {
+    if (isSpotify403(e)) {
+      const res = await spotifyFetch(
+        `${API}/playlists/${encodeURIComponent(playlistId)}`,
+        accessToken,
+      );
+      return res.json();
+    }
+    throw e;
+  }
 }
 
+/**
+ * Spotify often returns 403 for playlist items depending on `market`.
+ * Try several query shapes (reports vary: no market vs from_token vs ISO country).
+ */
 export async function getPlaylistTracks(accessToken: string, playlistId: string, offset = 0, limit = 50) {
   const o = clampOffset(offset);
   const l = clampPageLimit(limit);
-  const params = new URLSearchParams({
-    offset: String(o),
-    limit: String(l),
-    /** Required for catalog / availability checks; avoids 403 in many regions. */
-    market: "from_token",
-  });
-  const res = await spotifyFetch(
-    `${API}/playlists/${encodeURIComponent(playlistId)}/tracks?${params.toString()}`,
-    accessToken,
-  );
-  return res.json();
+  const base = `${API}/playlists/${encodeURIComponent(playlistId)}/tracks`;
+
+  const paramVariants: URLSearchParams[] = [
+    new URLSearchParams({ offset: String(o), limit: String(l) }),
+    new URLSearchParams({ offset: String(o), limit: String(l), market: "from_token" }),
+  ];
+
+  let last403: Error | null = null;
+
+  for (const params of paramVariants) {
+    try {
+      const res = await spotifyFetch(`${base}?${params.toString()}`, accessToken);
+      return res.json();
+    } catch (e) {
+      if (isSpotify403(e)) {
+        last403 = e instanceof Error ? e : new Error(String(e));
+        continue;
+      }
+      throw e;
+    }
+  }
+
+  let country: string | undefined;
+  try {
+    const me = await getCurrentUser(accessToken);
+    country = typeof me.country === "string" ? me.country : undefined;
+  } catch {
+    /* ignore */
+  }
+
+  if (country) {
+    try {
+      const params = new URLSearchParams({
+        offset: String(o),
+        limit: String(l),
+        market: country,
+      });
+      const res = await spotifyFetch(`${base}?${params.toString()}`, accessToken);
+      return res.json();
+    } catch (e) {
+      if (!isSpotify403(e)) throw e;
+      last403 = e instanceof Error ? e : new Error(String(e));
+    }
+  }
+
+  throw last403 ?? new Error("Spotify 403: could not load playlist tracks");
 }

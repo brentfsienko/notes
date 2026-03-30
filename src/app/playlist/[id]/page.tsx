@@ -15,11 +15,19 @@ export default async function PlaylistPage({
   if (session.error === "RefreshTokenError") redirect("/auth/signout");
 
   const { id } = await params;
-  const playlist = await fetchPlaylistDetails(id);
+  let title = "playlist";
+  try {
+    const playlist = await fetchPlaylistDetails(id);
+    if (playlist?.name && typeof playlist.name === "string") {
+      title = playlist.name;
+    }
+  } catch {
+    /* Client still loads tracks; header falls back if metadata is forbidden. */
+  }
 
   return (
     <main className="flex min-h-[100dvh] flex-col pb-24">
-      <CollectionHeader title={playlist.name} backHref="/library" />
+      <CollectionHeader title={title} backHref="/library" />
       <PlaylistContent playlistId={id} />
       <AppBottomChrome />
     </main>
