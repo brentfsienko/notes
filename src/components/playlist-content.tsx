@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import Link from "next/link";
 import { LibraryTrackRow } from "./library-track-row";
 import { NoteEditor } from "./note-editor";
 import { fetchPlaylistTracks, saveSpotifyTrack } from "@/app/actions/spotify";
@@ -69,7 +70,17 @@ export function PlaylistContent({ playlistId }: { playlistId: string }) {
       } catch (e) {
         console.error("Failed to load playlist tracks:", e);
         const msg = e instanceof Error ? e.message : String(e);
-        if (isInitial) setError(`couldn't load this playlist: ${msg}`);
+        if (isInitial) {
+          if (msg.includes("403")) {
+            setError(
+              "spotify returned forbidden (often fixed by signing out and connecting again, or this playlist is restricted).",
+            );
+          } else if (msg.includes("playlist access missing")) {
+            setError(msg);
+          } else {
+            setError(`couldn't load this playlist: ${msg}`);
+          }
+        }
       } finally {
         setLoading(false);
         setLoadingMore(false);
@@ -136,6 +147,9 @@ export function PlaylistContent({ playlistId }: { playlistId: string }) {
         >
           retry
         </button>
+        <Link href="/auth/signout" className="mt-3 text-sm text-accent">
+          sign out &amp; reconnect
+        </Link>
       </div>
     );
   }

@@ -98,8 +98,14 @@ export async function getPlaylistDetails(accessToken: string, playlistId: string
 export async function getPlaylistTracks(accessToken: string, playlistId: string, offset = 0, limit = 50) {
   const o = clampOffset(offset);
   const l = clampPageLimit(limit);
+  const params = new URLSearchParams({
+    offset: String(o),
+    limit: String(l),
+    /** Required for catalog / availability checks; avoids 403 in many regions. */
+    market: "from_token",
+  });
   const res = await spotifyFetch(
-    `${API}/playlists/${encodeURIComponent(playlistId)}/tracks?offset=${o}&limit=${l}`,
+    `${API}/playlists/${encodeURIComponent(playlistId)}/tracks?${params.toString()}`,
     accessToken,
   );
   return res.json();

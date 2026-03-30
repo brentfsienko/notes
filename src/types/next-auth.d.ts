@@ -5,6 +5,8 @@ declare module "next-auth" {
     accessToken: string;
     spotifyId: string;
     error?: string;
+    /** Space-separated OAuth scopes granted for this session. */
+    scope?: string;
   }
 }
 
@@ -15,5 +17,6 @@ declare module "next-auth/jwt" {
     expiresAt: number;
     spotifyId: string;
     error?: string;
+    scope?: string;
   }
 }

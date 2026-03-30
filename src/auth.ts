@@ -26,6 +26,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           refreshToken: account.refresh_token as string,
           expiresAt: account.expires_at as number,
           spotifyId: account.providerAccountId,
+          scope:
+            typeof (account as { scope?: string }).scope === "string"
+              ? (account as { scope: string }).scope
+              : token.scope,
         };
       }
 
@@ -39,6 +43,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.accessToken = token.accessToken as string;
       session.spotifyId = token.spotifyId as string;
       session.error = token.error as string | undefined;
+      session.scope = token.scope as string | undefined;
       return session;
     },
   },
@@ -67,6 +72,8 @@ async function refreshAccessToken(
       accessToken: data.access_token,
       refreshToken: data.refresh_token ?? token.refreshToken,
       expiresAt: Math.floor(Date.now() / 1000) + data.expires_in,
+      scope:
+        typeof data.scope === "string" ? data.scope : (token.scope as string | undefined),
     };
   } catch {
     return { ...token, error: "RefreshTokenError" };

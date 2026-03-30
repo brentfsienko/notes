@@ -12,10 +12,31 @@ import {
   getPlaylistTracks,
 } from "@/lib/spotify";
 
+/** When scope is missing (legacy JWT), allow the request — Spotify will 403 if needed. */
+function hasPlaylistReadScopes(scope: string | undefined) {
+  if (!scope) return true;
+  return (
+    scope.includes("playlist-read-private") ||
+    scope.includes("playlist-read-collaborative")
+  );
+}
+
 async function getAccessToken() {
   const session = await auth();
   if (!session?.accessToken) throw new Error("Not authenticated");
   if (session.error === "RefreshTokenError") throw new Error("TokenExpired");
+  return session.accessToken;
+}
+
+async function getAccessTokenForPlaylists() {
+  const session = await auth();
+  if (!session?.accessToken) throw new Error("Not authenticated");
+  if (session.error === "RefreshTokenError") throw new Error("TokenExpired");
+  if (!hasPlaylistReadScopes(session.scope)) {
+    throw new Error(
+      "Spotify playlist access missing. Sign out and connect again to approve playlist permissions.",
+    );
+  }
   return session.accessToken;
 }
 
@@ -53,16 +74,16 @@ export async function fetchSavedTracksTotal() {
 }
 
 export async function fetchUserPlaylists(offset = 0, limit = 50) {
-  const token = await getAccessToken();
+  const token = await getAccessTokenForPlaylists();
   return getUserPlaylists(token, offset, limit);
 }
 
 export async function fetchPlaylistDetails(playlistId: string) {
-  const token = await getAccessToken();
+  const token = await getAccessTokenForPlaylists();
   return getPlaylistDetails(token, playlistId);
 }
 
 export async function fetchPlaylistTracks(playlistId: string, offset = 0, limit = 50) {
-  const token = await getAccessToken();
+  const token = await getAccessTokenForPlaylists();
   return getPlaylistTracks(token, playlistId, offset, limit);
 }
