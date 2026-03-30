@@ -6,6 +6,9 @@ import { ProfileContent } from "@/components/profile-content";
 export default async function ProfilePage() {
   const session = await auth();
   if (!session) redirect("/");
+  if (session.error === "RefreshTokenError") {
+    await signOut({ redirectTo: "/" });
+  }
 
   return (
     <main className="flex min-h-[100dvh] flex-col pb-24">

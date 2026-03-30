@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+import { auth, signOut } from "@/auth";
 import { redirect } from "next/navigation";
 import { AppBottomChrome } from "@/components/app-bottom-chrome";
 import { PlaylistContent } from "@/components/playlist-content";
@@ -12,6 +12,9 @@ export default async function PlaylistPage({
 }) {
   const session = await auth();
   if (!session) redirect("/");
+  if (session.error === "RefreshTokenError") {
+    await signOut({ redirectTo: "/" });
+  }
 
   const { id } = await params;
   const playlist = await fetchPlaylistDetails(id);

@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+import { auth, signOut } from "@/auth";
 import { redirect } from "next/navigation";
 import { AppBottomChrome } from "@/components/app-bottom-chrome";
 import { LikedContent } from "@/components/liked-content";
@@ -7,6 +7,9 @@ import { CollectionHeader } from "@/components/collection-header";
 export default async function LikedSongsPage() {
   const session = await auth();
   if (!session) redirect("/");
+  if (session.error === "RefreshTokenError") {
+    await signOut({ redirectTo: "/" });
+  }
 
   return (
     <main className="flex min-h-[100dvh] flex-col pb-24">
