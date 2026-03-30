@@ -118,8 +118,9 @@ export async function getPlaylistTracks(accessToken: string, playlistId: string,
   const base = `${API}/playlists/${encodeURIComponent(playlistId)}/tracks`;
 
   const paramVariants: URLSearchParams[] = [
-    new URLSearchParams({ offset: String(o), limit: String(l) }),
-    new URLSearchParams({ offset: String(o), limit: String(l), market: "from_token" }),
+    // Only request tracks to avoid episodes/local-episode edge cases.
+    new URLSearchParams({ offset: String(o), limit: String(l), additional_types: "track" }),
+    new URLSearchParams({ offset: String(o), limit: String(l), market: "from_token", additional_types: "track" }),
   ];
 
   let last403: Error | null = null;
@@ -151,6 +152,7 @@ export async function getPlaylistTracks(accessToken: string, playlistId: string,
         offset: String(o),
         limit: String(l),
         market: country,
+        additional_types: "track",
       });
       const res = await spotifyFetch(`${base}?${params.toString()}`, accessToken);
       return res.json();
@@ -158,6 +160,25 @@ export async function getPlaylistTracks(accessToken: string, playlistId: string,
       if (!isSpotify403(e)) throw e;
       last403 = e instanceof Error ? e : new Error(String(e));
     }
+  }
+
+  // Final fallback: use the playlist's tracks.href (some accounts work only via this URL).
+  try {
+    const details = await getPlaylistDetails(accessToken, playlistId);
+    const href = typeof details?.tracks?.href === "string" ? (details.tracks.href as string) : undefined;
+    if (href) {
+      const u = new URL(href);
+      u.searchParams.set("offset", String(o));
+      u.searchParams.set("limit", String(l));
+      u.searchParams.set("additional_types", "track");
+      // If market wasn't already set by Spotify, try from_token first.
+      if (!u.searchParams.get("market")) u.searchParams.set("market", "from_token");
+      const res = await spotifyFetch(u.toString(), accessToken);
+      return res.json();
+    }
+  } catch (e) {
+    if (!isSpotify403(e)) throw e;
+    last403 = e instanceof Error ? e : new Error(String(e));
   }
 
   throw last403 ?? new Error("Spotify 403: could not load playlist tracks");
