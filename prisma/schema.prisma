@@ -1,0 +1,20 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Note {
+  id             String   @id @default(cuid())
+  spotifyUserId  String
+  spotifyTrackId String
+  body           String   @default("")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([spotifyUserId, spotifyTrackId])
+  @@index([spotifyUserId])
+}
