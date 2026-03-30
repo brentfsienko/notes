@@ -44,13 +44,17 @@ export function PlaylistContent({
         const data = await fetchPlaylistTracks(playlistId, currentOffset);
         const items = (data.items ?? []).filter(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (item: any) =>
-            item?.track?.id &&
-            (item.track.type === undefined || item.track.type === "track"),
+          (row: any) => {
+            const t = row?.track ?? row?.item;
+            return (
+              t?.id &&
+              (t.type === undefined || t.type === "track")
+            );
+          },
         );
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const trackIds = items.map((item: any) => item.track.id as string);
+        const trackIds = items.map((item: any) => (item.track ?? item.item).id as string);
         const notes = await getNotes(trackIds);
         const noteMap = new Map(
           notes.map((n: { spotifyTrackId: string; body: string }) => [
@@ -61,7 +65,7 @@ export function PlaylistContent({
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const newTracks: TrackWithNote[] = items.map((item: any) => {
-          const t = item.track;
+          const t = item.track ?? item.item;
           const images = t.album?.images ?? [];
           return {
             id: t.id,

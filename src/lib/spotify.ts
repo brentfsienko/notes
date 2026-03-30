@@ -36,6 +36,44 @@ function isSpotify403(err: unknown): boolean {
   return err instanceof Error && err.message.includes("Spotify 403");
 }
 
+/**
+ * Playlist pages return `items[]` where each row is usually `{ added_at, track }`.
+ * The newer `/items` API may use `{ added_at, item }` for the playable object instead.
+ * Normalize to `{ added_at, track }` so the rest of the app stays unchanged.
+ */
+function normalizePlaylistItemsPage(data: {
+  items?: unknown[];
+  next?: string | null;
+  total?: number;
+  limit?: number;
+  offset?: number;
+}): {
+  items: unknown[];
+  next: string | null;
+  total?: number;
+  limit?: number;
+  offset?: number;
+} {
+  const raw = data.items ?? [];
+  const items = raw.map((row) => {
+    if (!row || typeof row !== "object") return row;
+    const r = row as Record<string, unknown>;
+    if (r.track && typeof r.track === "object") return r;
+    const inner = r.item;
+    if (inner && typeof inner === "object") {
+      const t = inner as { type?: string };
+      if (t.type === "episode") return { ...r, track: null };
+      return { ...r, track: inner };
+    }
+    return r;
+  });
+  return {
+    ...data,
+    items,
+    next: data.next ?? null,
+  };
+}
+
 export async function getSavedTracks(accessToken: string, offset = 0, limit = 20) {
   const o = clampOffset(offset);
   const l = clampPageLimit(limit);
@@ -124,17 +162,17 @@ export async function getPlaylistTracks(accessToken: string, playlistId: string,
   const itemsUrl = `${API}/playlists/${id}/items`;
   const tracksLegacyUrl = `${API}/playlists/${id}/tracks`;
 
+  /** Do not send `additional_types=track` alone — Spotify treats it as *extra* types beyond the default track and it can yield bad/empty pages. */
   const listParams = () =>
     new URLSearchParams({
       offset: String(o),
       limit: String(l),
-      additional_types: "track",
     });
 
   // 1) Current API: /items
   try {
     const res = await spotifyFetch(`${itemsUrl}?${listParams()}`, accessToken);
-    return res.json();
+    return normalizePlaylistItemsPage(await res.json());
   } catch (e) {
     if (!isSpotify403(e)) throw e;
   }
@@ -142,7 +180,7 @@ export async function getPlaylistTracks(accessToken: string, playlistId: string,
   // 2) Deprecated alias: /tracks (some stacks still route differently)
   try {
     const res = await spotifyFetch(`${tracksLegacyUrl}?${listParams()}`, accessToken);
-    return res.json();
+    return normalizePlaylistItemsPage(await res.json());
   } catch (e) {
     if (!isSpotify403(e)) throw e;
   }
@@ -152,10 +190,8 @@ export async function getPlaylistTracks(accessToken: string, playlistId: string,
     offset: String(o),
     limit: String(l),
     market: "from_token",
-    additional_types: "track",
-    // Keep payload small but ensure `tracks.items` is present.
-    fields:
-      "tracks.items(added_at,track(id,name,artists(name),album(images),type)),tracks.next,tracks.total",
+    // Request full `tracks.items` cells so Spotify returns both `track` and/or `item` shapes.
+    fields: "tracks.items,tracks.next,tracks.total",
   });
   const res = await spotifyFetch(
     `${API}/playlists/${encodeURIComponent(playlistId)}?${playlistParams.toString()}`,
@@ -183,25 +219,31 @@ export async function getPlaylistTracks(accessToken: string, playlistId: string,
     };
   }
 
+  const normalizedItems = normalizePlaylistItemsPage({
+    items: tracks.items,
+    next: tracks.next ?? null,
+    total: tracks.total,
+  }).items;
+
   // The full-playlist endpoint starts at offset 0 with up to 100 items.
   // If the caller asked for offset 0, we can return it directly (sliced to limit).
   if (o === 0) {
     return {
-      items: tracks.items.slice(0, l),
-      next: tracks.items.length > l ? "more" : (tracks.next ?? null),
-      total: typeof tracks.total === "number" ? tracks.total : tracks.items.length,
+      items: normalizedItems.slice(0, l),
+      next: normalizedItems.length > l ? "more" : (tracks.next ?? null),
+      total: typeof tracks.total === "number" ? tracks.total : normalizedItems.length,
       offset: 0,
     };
   }
 
   // For offset > 0: the full-playlist response only has items 0-99.
   // Return the slice if available, otherwise return empty to signal "no more".
-  if (o < tracks.items.length) {
-    const slice = tracks.items.slice(o, o + l);
+  if (o < normalizedItems.length) {
+    const slice = normalizedItems.slice(o, o + l);
     return {
       items: slice,
-      next: o + l < tracks.items.length ? "more" : null,
-      total: typeof tracks.total === "number" ? tracks.total : tracks.items.length,
+      next: o + l < normalizedItems.length ? "more" : null,
+      total: typeof tracks.total === "number" ? tracks.total : normalizedItems.length,
       offset: o,
     };
   }
@@ -210,7 +252,7 @@ export async function getPlaylistTracks(accessToken: string, playlistId: string,
   return {
     items: [],
     next: null,
-    total: typeof tracks.total === "number" ? tracks.total : tracks.items.length,
+    total: typeof tracks.total === "number" ? tracks.total : normalizedItems.length,
     offset: o,
   };
 }
