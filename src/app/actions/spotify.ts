@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@/auth";
+import { auth, signOut } from "@/auth";
 import {
   getSavedTracks,
   searchTracks,
@@ -14,8 +14,10 @@ import {
 
 async function getAccessToken() {
   const session = await auth();
-  if (!session?.accessToken) throw new Error("Not authenticated");
-  if (session.error === "RefreshTokenError") throw new Error("Token expired");
+  if (!session?.accessToken || session.error === "RefreshTokenError") {
+    await signOut({ redirectTo: "/" });
+    throw new Error("Session expired");
+  }
   return session.accessToken;
 }
 
