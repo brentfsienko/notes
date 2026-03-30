@@ -123,11 +123,26 @@ export async function checkSavedTracks(
 export async function getUserPlaylists(accessToken: string, offset = 0, limit = 50) {
   const o = clampOffset(offset);
   const l = clampPageLimit(limit);
-  const res = await spotifyFetch(
-    `${API}/me/playlists?offset=${o}&limit=${l}`,
-    accessToken,
-  );
-  return res.json();
+  const params = new URLSearchParams({
+    offset: String(o),
+    limit: String(l),
+    /** Ask for `tracks.total` explicitly; default responses sometimes omit it. */
+    fields:
+      "items(id,name,images,owner(display_name),tracks(href,total)),next,previous,total",
+  });
+  try {
+    const res = await spotifyFetch(`${API}/me/playlists?${params}`, accessToken);
+    return res.json();
+  } catch (e) {
+    if (e instanceof Error && e.message.includes("Spotify 400")) {
+      const res = await spotifyFetch(
+        `${API}/me/playlists?offset=${o}&limit=${l}`,
+        accessToken,
+      );
+      return res.json();
+    }
+    throw e;
+  }
 }
 
 export async function getPlaylistDetails(accessToken: string, playlistId: string) {
