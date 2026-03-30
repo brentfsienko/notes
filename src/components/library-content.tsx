@@ -10,7 +10,18 @@ import {
 import Link from "next/link";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
-import { fetchLibraryInitial, fetchUserPlaylists } from "@/app/actions/spotify";
+async function libraryJsonFetch<T>(url: string): Promise<T> {
+  const res = await fetch(url, { credentials: "same-origin" });
+  const body = (await res.json().catch(() => ({}))) as { error?: string };
+  if (!res.ok) {
+    throw new Error(
+      typeof body.error === "string"
+        ? body.error
+        : `request failed (${res.status})`,
+    );
+  }
+  return body as T;
+}
 
 const PLAYLIST_PAGE = 50;
 /** Safety cap so one session cannot fan out unbounded `/me/playlists` calls. */
@@ -134,12 +145,20 @@ export function LibraryContent() {
     setPlaylistPageError(null);
     try {
       await waitPlaylistPageGap();
-      const page = await fetchUserPlaylists(playlistNextOffset, PLAYLIST_PAGE);
+      const params = new URLSearchParams({
+        offset: String(playlistNextOffset),
+        limit: String(PLAYLIST_PAGE),
+      });
+      const page = await libraryJsonFetch<{
+        items: unknown[];
+        next?: string | null;
+      }>(`/api/library/playlists?${params}`);
       lastPlaylistPageAtRef.current = Date.now();
 
-      const items = (page.items ?? []).filter(
-        (p: Playlist) => p && p.id && p.name,
-      ) as Playlist[];
+      const items = (page.items ?? []).filter((p: unknown): p is Playlist => {
+        const pl = p as Playlist;
+        return Boolean(pl && pl.id && pl.name);
+      });
       setPlaylists((prev) => [...prev, ...items]);
 
       const nextPageCount = playlistPagesLoaded + 1;
@@ -175,7 +194,12 @@ export function LibraryContent() {
     setPlaylistNextOffset(null);
     setPlaylistPagesLoaded(0);
     try {
-      const { likedTotal, playlists: firstRows, nextOffset } = await fetchLibraryInitial();
+      const { likedTotal, playlists: firstRows, nextOffset } =
+        await libraryJsonFetch<{
+          likedTotal: number;
+          playlists: unknown[];
+          nextOffset: number | null;
+        }>("/api/library/initial");
       setLikedTotal(likedTotal);
 
       const merged: Playlist[] = (firstRows as unknown as Playlist[]).filter(

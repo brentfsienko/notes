@@ -7,7 +7,6 @@ import {
   saveTrack,
   checkSavedTracks,
   getCurrentUser,
-  getUserPlaylists,
   getPlaylistDetails,
   getPlaylistTracks,
 } from "@/lib/spotify";
@@ -71,52 +70,6 @@ export async function fetchSavedTracksTotal() {
   const token = await getAccessToken();
   const data = await getSavedTracks(token, 0, 1);
   return (data?.total as number) ?? 0;
-}
-
-/**
- * First chunk of library data only (liked count + first playlist page).
- * Remaining pages are loaded from the client via `fetchUserPlaylists` (lazy / on scroll)
- * with spacing between calls — see Spotify rate limits (rolling window + Retry-After on 429).
- */
-export async function fetchLibraryInitial() {
-  const session = await auth();
-  if (!session?.accessToken) throw new Error("Not authenticated");
-  if (session.error === "RefreshTokenError") throw new Error("TokenExpired");
-  if (!hasPlaylistReadScopes(session.scope)) {
-    throw new Error(
-      "Spotify playlist access missing. Sign out and connect again to approve playlist permissions.",
-    );
-  }
-  const token = session.accessToken;
-
-  try {
-    const savedPreview = await getSavedTracks(token, 0, 1);
-    const likedTotal = (savedPreview?.total as number) ?? 0;
-
-    const data = await getUserPlaylists(token, 0, 50);
-    const raw = data.items ?? [];
-    const playlists = raw.map((p: Record<string, unknown>) => ({ ...p }));
-    const nextOffset = data.next ? 50 : null;
-
-    return { likedTotal, playlists, nextOffset };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    if (msg.includes("Spotify 429")) {
-      throw new Error(
-        "Spotify rate limited this request — wait a minute and tap retry, or close other tabs using Spotify.",
-      );
-    }
-    throw e;
-  }
-}
-
-/** One `/me/playlists` page — used after `fetchLibraryInitial` for remaining offsets. */
-export async function fetchUserPlaylists(offset = 0, limit = 50) {
-  const token = await getAccessTokenForPlaylists();
-  const data = await getUserPlaylists(token, offset, limit);
-  const raw = data.items ?? [];
-  const items = raw.map((p: Record<string, unknown>) => ({ ...p }));
-  return { ...data, items };
 }
 
 /**
