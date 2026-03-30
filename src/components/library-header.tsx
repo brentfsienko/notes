@@ -38,26 +38,15 @@ export function LibraryHeader({
         Your Library
       </h1>
 
-      <div className="flex shrink-0 items-center gap-1">
-        <Link
-          href="/search"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-fg active:bg-chip"
-          aria-label="Search"
-        >
-          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-          </svg>
-        </Link>
-        <Link
-          href="/search?add=1"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-fg active:bg-chip"
-          aria-label="Add songs"
-        >
-          <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-        </Link>
-      </div>
+      <Link
+        href="/search"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-fg active:bg-chip"
+        aria-label="Search"
+      >
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+        </svg>
+      </Link>
     </header>
   );
 }

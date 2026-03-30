@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState, useCallback } from "react";
 import { TrackCard } from "./track-card";
 import { NoteEditor } from "./note-editor";
 import {
@@ -20,21 +19,13 @@ interface SearchTrack {
   saved: boolean;
 }
 
-function SearchContentInner() {
-  const params = useSearchParams();
-  const inputRef = useRef<HTMLInputElement>(null);
+export function SearchContent() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchTrack[]>([]);
   const [searching, setSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [editingTrack, setEditingTrack] = useState<SearchTrack | null>(null);
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    if (params.get("add") === "1") {
-      inputRef.current?.focus();
-    }
-  }, [params]);
 
   const handleSearch = useCallback(async () => {
     const q = query.trim();
@@ -121,7 +112,6 @@ function SearchContentInner() {
           className="flex gap-2"
         >
           <input
-            ref={inputRef}
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -209,17 +199,5 @@ function SearchContentInner() {
         onSave={handleSaveNote}
       />
     </>
-  );
-}
-
-export function SearchContent() {
-  return (
-    <Suspense
-      fallback={
-        <div className="px-4 py-8 text-center text-sm text-muted">Loading…</div>
-      }
-    >
-      <SearchContentInner />
-    </Suspense>
   );
 }

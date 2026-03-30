@@ -140,7 +140,7 @@ export function LibraryContent() {
       <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
         <p className="text-base font-medium text-fg">Nothing here yet</p>
         <p className="mt-2 text-sm text-muted">
-          Save songs in Spotify or tap Create to search.
+          Save songs in Spotify or open Search to find more.
         </p>
       </div>
     );

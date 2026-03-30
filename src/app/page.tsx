@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 export default async function Home() {
   const session = await auth();
-  if (session) redirect("/home");
+  if (session) redirect("/library");
 
   return (
     <main className="flex flex-col items-center justify-center min-h-[100dvh] px-6 text-center">
@@ -20,7 +20,7 @@ export default async function Home() {
         <form
           action={async () => {
             "use server";
-            await signIn("spotify", { redirectTo: "/home" });
+            await signIn("spotify", { redirectTo: "/library" });
           }}
         >
           <button
