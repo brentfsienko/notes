@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
-import { fetchUserPlaylists, fetchSavedTracksTotal } from "@/app/actions/spotify";
+import { fetchLibraryData } from "@/app/actions/spotify";
 
 interface Playlist {
   id: string;
@@ -96,32 +96,19 @@ export function LibraryContent() {
     setLoading(true);
     setError(null);
     try {
-      const total = await fetchSavedTracksTotal();
-      const merged: Playlist[] = [];
-      let offset = 0;
-      const pageSize = 50;
-      const maxPages = 80;
-      for (let page = 0; page < maxPages; page++) {
-        const playlistData = await fetchUserPlaylists(offset, pageSize);
-        const items = (playlistData.items ?? []).filter(
-          (p: Playlist) => p && p.id && p.name,
-        ) as Playlist[];
-        merged.push(...items);
-        if (!playlistData.next) break;
-        offset += pageSize;
-      }
-      setPlaylists(merged);
-      setLikedTotal(total);
+      const { likedTotal, playlists: rows } = await fetchLibraryData();
+      setLikedTotal(likedTotal);
+      setPlaylists(
+        (rows as unknown as Playlist[]).filter((p) => p && p.id && p.name),
+      );
     } catch (e) {
       console.error("Failed to load library:", e);
       const msg = e instanceof Error ? e.message : String(e);
-      if (msg.includes("Spotify 429")) {
-        setError(
-          "spotify rate limited this request — wait a bit and tap retry, or close other tabs using spotify.",
-        );
-      } else {
-        setError(`couldn't load your library: ${msg}`);
-      }
+      setError(
+        msg.startsWith("Spotify rate limited") || msg.includes("rate limit")
+          ? msg
+          : `couldn't load your library: ${msg}`,
+      );
     } finally {
       setLoading(false);
     }

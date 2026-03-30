@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { fetchSpotifyProfile, fetchSavedTracksTotal } from "@/app/actions/spotify";
+import { fetchProfileSpotifySummary } from "@/app/actions/spotify";
 import { countNotes } from "@/app/actions/notes";
 
 export function ProfileContent() {
@@ -17,14 +17,13 @@ export function ProfileContent() {
   useEffect(() => {
     async function load() {
       try {
-        const [prof, notes, saved] = await Promise.all([
-          fetchSpotifyProfile(),
+        const [bundle, notes] = await Promise.all([
+          fetchProfileSpotifySummary(),
           countNotes(),
-          fetchSavedTracksTotal(),
         ]);
-        setProfile(prof);
+        setProfile(bundle.profile);
         setNoteCount(notes);
-        setSavedCount(saved);
+        setSavedCount(bundle.likedTotal);
       } catch (e) {
         console.error("Failed to load profile:", e);
         setError(true);

@@ -74,15 +74,66 @@ export async function fetchSavedTracksTotal() {
 }
 
 /**
- * Single `/me/playlists` page. No per-row `getPlaylistDetails` — that N+1 pattern
- * combined with parallel library loads caused Spotify 429 on large libraries.
+ * One server action for the whole library: single `auth()`, then sequential Spotify calls.
+ * Replaces N+1 client round-trips (each re-authenticating) that amplified rate limits.
  */
+export async function fetchLibraryData() {
+  const session = await auth();
+  if (!session?.accessToken) throw new Error("Not authenticated");
+  if (session.error === "RefreshTokenError") throw new Error("TokenExpired");
+  if (!hasPlaylistReadScopes(session.scope)) {
+    throw new Error(
+      "Spotify playlist access missing. Sign out and connect again to approve playlist permissions.",
+    );
+  }
+  const token = session.accessToken;
+
+  try {
+    const savedPreview = await getSavedTracks(token, 0, 1);
+    const likedTotal = (savedPreview?.total as number) ?? 0;
+
+    const pageSize = 50;
+    const maxPages = 80;
+    const playlists: Record<string, unknown>[] = [];
+    let offset = 0;
+    for (let page = 0; page < maxPages; page++) {
+      const data = await getUserPlaylists(token, offset, pageSize);
+      const raw = data.items ?? [];
+      playlists.push(...raw.map((p: Record<string, unknown>) => ({ ...p })));
+      if (!data.next) break;
+      offset += pageSize;
+    }
+
+    return { likedTotal, playlists };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes("Spotify 429")) {
+      throw new Error(
+        "Spotify rate limited this request — wait a minute and tap retry, or close other tabs using Spotify.",
+      );
+    }
+    throw e;
+  }
+}
+
+/** One `/me/playlists` page — prefer `fetchLibraryData` for the library screen to avoid duplicate auth. */
 export async function fetchUserPlaylists(offset = 0, limit = 50) {
   const token = await getAccessTokenForPlaylists();
   const data = await getUserPlaylists(token, offset, limit);
   const raw = data.items ?? [];
   const items = raw.map((p: Record<string, unknown>) => ({ ...p }));
   return { ...data, items };
+}
+
+/**
+ * Profile header: `/me` + liked count in one action (one `auth()`), sequential Spotify calls.
+ */
+export async function fetchProfileSpotifySummary() {
+  const token = await getAccessToken();
+  const profile = await getCurrentUser(token);
+  const savedPreview = await getSavedTracks(token, 0, 1);
+  const likedTotal = (savedPreview?.total as number) ?? 0;
+  return { profile, likedTotal };
 }
 
 export async function fetchPlaylistDetails(playlistId: string) {
