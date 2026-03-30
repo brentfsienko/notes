@@ -98,7 +98,7 @@ export function NoteEditor({
           >
             cancel
           </button>
-          <p className="truncate text-sm font-light tracking-wide text-fg">note</p>
+          <p className="truncate text-sm font-bold tracking-wide text-fg">note</p>
           <button
             type="button"
             onClick={handleSave}

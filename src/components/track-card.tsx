@@ -14,6 +14,14 @@ interface TrackCardProps {
   action?: React.ReactNode;
 }
 
+function PencilIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+    </svg>
+  );
+}
+
 export function TrackCard({ track, note, onNoteClick, action }: TrackCardProps) {
   return (
     <div className="flex items-center gap-3 px-4 py-2.5">
@@ -39,7 +47,7 @@ export function TrackCard({ track, note, onNoteClick, action }: TrackCardProps) 
           {note ? (
             <p className="mt-0.5 line-clamp-1 text-sm text-accent/80">{note}</p>
           ) : (
-            <p className="mt-0.5 text-sm text-faint">add a note\u2026</p>
+            <PencilIcon className="mt-0.5 h-3.5 w-3.5 text-faint" />
           )}
         </div>
       </button>

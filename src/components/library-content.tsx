@@ -1,110 +1,53 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { LibraryTrackRow } from "./library-track-row";
-import { NoteEditor } from "./note-editor";
-import { fetchSavedTracks } from "@/app/actions/spotify";
-import { getNotes, upsertNote, deleteNote } from "@/app/actions/notes";
+import Link from "next/link";
+import Image from "next/image";
+import { fetchUserPlaylists, fetchSavedTracksTotal } from "@/app/actions/spotify";
 
-interface TrackWithNote {
+interface Playlist {
   id: string;
   name: string;
-  artist: string;
-  albumArt: string;
-  note: string;
-  addedAt: string;
+  owner: { display_name: string };
+  images: Array<{ url: string }>;
+  tracks: { total: number };
 }
 
 export function LibraryContent() {
-  const [tracks, setTracks] = useState<TrackWithNote[]>([]);
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [likedTotal, setLikedTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [offset, setOffset] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-  const [editingTrack, setEditingTrack] = useState<TrackWithNote | null>(null);
   const [search, setSearch] = useState("");
 
-  const loadTracks = useCallback(async (currentOffset: number) => {
-    const isInitial = currentOffset === 0;
-    if (isInitial) setLoading(true);
-    else setLoadingMore(true);
-
+  const load = useCallback(async () => {
+    setLoading(true);
     try {
-      const data = await fetchSavedTracks(currentOffset);
-      const items = data.items ?? [];
-
-      const trackIds = items.map(
-        (item: { track: { id: string } }) => item.track.id,
-      );
-      const notes = await getNotes(trackIds);
-      const noteMap = new Map(
-        notes.map((n: { spotifyTrackId: string; body: string }) => [
-          n.spotifyTrackId,
-          n.body,
-        ]),
-      );
-
-      const newTracks: TrackWithNote[] = items.map(
-        (item: {
-          added_at?: string;
-          track: {
-            id: string;
-            name: string;
-            artists: Array<{ name: string }>;
-            album: { images: Array<{ url: string }> };
-          };
-        }) => {
-          const images = item.track.album.images;
-          return {
-            id: item.track.id,
-            name: item.track.name,
-            artist: item.track.artists.map((a) => a.name).join(", "),
-            albumArt: images[images.length > 1 ? 1 : 0]?.url ?? "",
-            note: (noteMap.get(item.track.id) as string) ?? "",
-            addedAt: item.added_at ?? "",
-          };
-        },
-      );
-
-      setTracks((prev) => (isInitial ? newTracks : [...prev, ...newTracks]));
-      setHasMore(data.next !== null);
-      setOffset(currentOffset + items.length);
+      const [playlistData, total] = await Promise.all([
+        fetchUserPlaylists(0, 50),
+        fetchSavedTracksTotal(),
+      ]);
+      setPlaylists(playlistData.items ?? []);
+      setLikedTotal(total);
     } finally {
       setLoading(false);
-      setLoadingMore(false);
     }
   }, []);
 
   useEffect(() => {
-    loadTracks(0);
-  }, [loadTracks]);
+    load();
+  }, [load]);
 
-  const visibleTracks = useMemo(() => {
-    if (!search.trim()) return tracks;
+  const filtered = useMemo(() => {
+    if (!search.trim()) return playlists;
     const q = search.toLowerCase();
-    return tracks.filter(
-      (t) =>
-        t.name.toLowerCase().includes(q) ||
-        t.artist.toLowerCase().includes(q) ||
-        t.note.toLowerCase().includes(q),
+    return playlists.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.owner.display_name.toLowerCase().includes(q),
     );
-  }, [tracks, search]);
+  }, [playlists, search]);
 
-  async function handleSaveNote(body: string) {
-    if (!editingTrack) return;
-    await upsertNote(editingTrack.id, body);
-    setTracks((prev) =>
-      prev.map((t) => (t.id === editingTrack.id ? { ...t, note: body } : t)),
-    );
-  }
-
-  async function handleDeleteNote() {
-    if (!editingTrack) return;
-    await deleteNote(editingTrack.id);
-    setTracks((prev) =>
-      prev.map((t) => (t.id === editingTrack.id ? { ...t, note: "" } : t)),
-    );
-  }
+  const showLiked = !search.trim() || "liked songs".includes(search.toLowerCase());
 
   if (loading) {
     return (
@@ -118,17 +61,6 @@ export function LibraryContent() {
             </div>
           </div>
         ))}
-      </div>
-    );
-  }
-
-  if (tracks.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
-        <p className="text-sm font-light text-fg">nothing here yet</p>
-        <p className="mt-2 text-sm text-muted font-light">
-          save songs in spotify or use search to find more.
-        </p>
       </div>
     );
   }
@@ -156,46 +88,70 @@ export function LibraryContent() {
         </div>
       </div>
 
-      {visibleTracks.length === 0 ? (
-        <p className="px-4 py-8 text-center text-sm text-muted font-light">
-          no songs match &ldquo;{search}&rdquo;
-        </p>
-      ) : (
-        <div className="flex flex-col pb-4">
-          {visibleTracks.map((track) => (
-            <LibraryTrackRow
-              key={track.id}
-              track={track}
-              note={track.note}
-              onNoteClick={() => setEditingTrack(track)}
-              variant="list"
-            />
-          ))}
-        </div>
-      )}
-
-      {hasMore && (
-        <div className="flex justify-center pb-8 pt-2">
-          <button
-            onClick={() => loadTracks(offset)}
-            disabled={loadingMore}
-            className="rounded-lg border border-border px-6 py-2.5 text-sm font-light text-muted active:bg-elevated disabled:opacity-50 transition-colors"
+      <div className="flex flex-col pb-4">
+        {showLiked && (
+          <Link
+            href="/library/liked"
+            className="flex items-center gap-3 px-4 py-2.5 active:bg-elevated/60 transition-colors"
           >
-            {loadingMore ? "loading\u2026" : "load more"}
-          </button>
-        </div>
-      )}
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded bg-gradient-to-br from-accent/60 to-accent/20">
+              <svg className="h-5 w-5 text-fg" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+              </svg>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[15px] font-normal text-fg">liked songs</p>
+              <p className="truncate text-sm text-muted">
+                {likedTotal !== null ? `${likedTotal} songs` : "playlist"}
+              </p>
+            </div>
+            <svg className="h-4 w-4 shrink-0 text-faint" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+            </svg>
+          </Link>
+        )}
 
-      <NoteEditor
-        open={!!editingTrack}
-        onOpenChange={(open) => {
-          if (!open) setEditingTrack(null);
-        }}
-        track={editingTrack ?? { id: "", name: "", artist: "", albumArt: "" }}
-        initialNote={editingTrack?.note ?? ""}
-        onSave={handleSaveNote}
-        onDelete={editingTrack?.note ? handleDeleteNote : undefined}
-      />
+        {filtered.map((playlist) => (
+          <Link
+            key={playlist.id}
+            href={`/playlist/${playlist.id}`}
+            className="flex items-center gap-3 px-4 py-2.5 active:bg-elevated/60 transition-colors"
+          >
+            <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded bg-elevated">
+              {playlist.images?.[0]?.url ? (
+                <Image
+                  src={playlist.images[0].url}
+                  alt=""
+                  fill
+                  sizes="48px"
+                  className="object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center">
+                  <svg className="h-5 w-5 text-faint" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m9 9 10.5-3m0 6.553v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 1 1-.99-3.467l2.31-.66a2.25 2.25 0 0 0 1.632-2.163Zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 0 1-.99-3.467l2.31-.66A2.25 2.25 0 0 0 9 15.553Z" />
+                  </svg>
+                </div>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[15px] font-normal text-fg">{playlist.name}</p>
+              <p className="truncate text-sm text-muted">
+                {playlist.owner.display_name} {"\u00B7"} {playlist.tracks.total} songs
+              </p>
+            </div>
+            <svg className="h-4 w-4 shrink-0 text-faint" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+            </svg>
+          </Link>
+        ))}
+
+        {!showLiked && filtered.length === 0 && (
+          <p className="px-4 py-8 text-center text-sm text-muted">
+            {`no results for \u201C${search}\u201D`}
+          </p>
+        )}
+      </div>
     </>
   );
 }

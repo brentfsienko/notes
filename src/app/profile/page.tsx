@@ -10,7 +10,7 @@ export default async function ProfilePage() {
   return (
     <main className="flex min-h-[100dvh] flex-col pb-24">
       <header className="px-4 pt-6 pb-2">
-        <h1 className="text-xl font-light tracking-wide text-fg lowercase">profile</h1>
+        <h1 className="text-xl font-bold tracking-wide text-fg lowercase">profile</h1>
       </header>
 
       <ProfileContent />

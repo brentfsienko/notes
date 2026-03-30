@@ -63,7 +63,7 @@ export function ProfileContent() {
         </div>
       )}
 
-      <h2 className="text-lg font-light text-fg mt-4 tracking-wide">
+      <h2 className="text-lg font-bold text-fg mt-4 tracking-wide">
         {profile?.display_name ?? "listener"}
       </h2>
 

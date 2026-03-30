@@ -76,3 +76,31 @@ export async function checkSavedTracks(
   );
   return res.json();
 }
+
+export async function getUserPlaylists(accessToken: string, offset = 0, limit = 50) {
+  const o = clampOffset(offset);
+  const l = clampPageLimit(limit);
+  const res = await spotifyFetch(
+    `${API}/me/playlists?offset=${o}&limit=${l}`,
+    accessToken,
+  );
+  return res.json();
+}
+
+export async function getPlaylistDetails(accessToken: string, playlistId: string) {
+  const res = await spotifyFetch(
+    `${API}/playlists/${encodeURIComponent(playlistId)}?fields=id,name,description,images,owner(display_name),tracks(total)`,
+    accessToken,
+  );
+  return res.json();
+}
+
+export async function getPlaylistTracks(accessToken: string, playlistId: string, offset = 0, limit = 50) {
+  const o = clampOffset(offset);
+  const l = clampPageLimit(limit);
+  const res = await spotifyFetch(
+    `${API}/playlists/${encodeURIComponent(playlistId)}/tracks?offset=${o}&limit=${l}&fields=items(added_at,track(id,name,artists(name),album(images))),next,total`,
+    accessToken,
+  );
+  return res.json();
+}

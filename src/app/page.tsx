@@ -8,7 +8,7 @@ export default async function Home() {
   return (
     <main className="flex flex-col items-center justify-center min-h-[100dvh] px-6 text-center">
       <div className="max-w-xs">
-        <h1 className="text-3xl font-light text-fg tracking-widest lowercase">
+        <h1 className="text-3xl font-bold text-fg tracking-widest lowercase">
           oto
         </h1>
         <p className="text-[15px] text-muted mt-6 leading-relaxed font-light">

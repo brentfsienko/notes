@@ -34,7 +34,7 @@ export function LibraryHeader({
         )}
       </Link>
 
-      <h1 className="min-w-0 flex-1 text-xl font-light tracking-wide text-fg lowercase">
+      <h1 className="min-w-0 flex-1 text-xl font-bold tracking-wide text-fg lowercase">
         your library
       </h1>
 
