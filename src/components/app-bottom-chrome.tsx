@@ -2,11 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Nav } from "./nav";
-import { MiniPlayer } from "./mini-player";
 
 const SCROLL_DOWN_HIDE = 10;
 const SCROLL_UP_SHOW = 10;
-/** Always show chrome when this close to the top of the page. */
 const TOP_ALWAYS_VISIBLE = 48;
 
 function readScrollY() {
@@ -18,7 +16,7 @@ function readScrollY() {
   );
 }
 
-/** Fixed stack: mini-player above tab bar; slides down while scrolling down, back up on scroll up. */
+/** Fixed tab bar; slides down while scrolling down, back up on scroll up. */
 export function AppBottomChrome() {
   const [retracted, setRetracted] = useState(false);
   const lastY = useRef(0);
@@ -61,7 +59,6 @@ export function AppBottomChrome() {
           : "translate-y-0"
       }`}
     >
-      <MiniPlayer />
       <Nav />
     </div>
   );

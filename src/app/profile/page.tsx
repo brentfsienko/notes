@@ -8,7 +8,7 @@ export default async function ProfilePage() {
   if (!session) redirect("/");
 
   return (
-    <main className="flex min-h-[100dvh] flex-col pb-[11rem]">
+    <main className="flex min-h-[100dvh] flex-col pb-24">
       <header className="px-4 pt-6 pb-2">
         <h1 className="text-2xl font-bold tracking-tight text-fg">Profile</h1>
       </header>

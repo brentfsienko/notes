@@ -6,9 +6,6 @@ import { NoteEditor } from "./note-editor";
 import { fetchSavedTracks } from "@/app/actions/spotify";
 import { getNotes, upsertNote, deleteNote } from "@/app/actions/notes";
 
-type FilterId = "all" | "notes" | "none";
-type SortId = "recent" | "title";
-
 interface TrackWithNote {
   id: string;
   name: string;
@@ -18,12 +15,6 @@ interface TrackWithNote {
   addedAt: string;
 }
 
-const CHIPS: { id: FilterId; label: string }[] = [
-  { id: "all", label: "Songs" },
-  { id: "notes", label: "With notes" },
-  { id: "none", label: "No note" },
-];
-
 export function LibraryContent() {
   const [tracks, setTracks] = useState<TrackWithNote[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,9 +22,7 @@ export function LibraryContent() {
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [editingTrack, setEditingTrack] = useState<TrackWithNote | null>(null);
-  const [filter, setFilter] = useState<FilterId>("all");
-  const [sort, setSort] = useState<SortId>("recent");
-  const [grid, setGrid] = useState(false);
+  const [search, setSearch] = useState("");
 
   const loadTracks = useCallback(async (currentOffset: number) => {
     const isInitial = currentOffset === 0;
@@ -91,17 +80,15 @@ export function LibraryContent() {
   }, [loadTracks]);
 
   const visibleTracks = useMemo(() => {
-    let t = tracks;
-    if (filter === "notes") t = t.filter((x) => x.note.trim());
-    if (filter === "none") t = t.filter((x) => !x.note.trim());
-    const sorted = [...t].sort((a, b) => {
-      if (sort === "title") return a.name.localeCompare(b.name);
-      const ta = a.addedAt ? new Date(a.addedAt).getTime() : 0;
-      const tb = b.addedAt ? new Date(b.addedAt).getTime() : 0;
-      return tb - ta;
-    });
-    return sorted;
-  }, [tracks, filter, sort]);
+    if (!search.trim()) return tracks;
+    const q = search.toLowerCase();
+    return tracks.filter(
+      (t) =>
+        t.name.toLowerCase().includes(q) ||
+        t.artist.toLowerCase().includes(q) ||
+        t.note.toLowerCase().includes(q),
+    );
+  }, [tracks, search]);
 
   async function handleSaveNote(body: string) {
     if (!editingTrack) return;
@@ -148,75 +135,31 @@ export function LibraryContent() {
 
   return (
     <>
-      <div className="no-scrollbar flex gap-2 overflow-x-auto px-4 pb-2 pt-2">
-        <button
-          type="button"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-chip text-fg"
-          aria-label="Filters"
-        >
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.125 1.125 0 1 1-2.25 0m2.25 0a1.125 1.125 0 1 0-2.25 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.125 1.125 0 1 0-2.25 0m2.25 0a1.125 1.125 0 1 1-2.25 0m-2.25 0H7.5m9-6h3.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125H18.75a1.125 1.125 0 0 1-1.125-1.125v-9.75c0-.621.504-1.125 1.125-1.125Z" />
-          </svg>
-        </button>
-        {CHIPS.map((c) => (
-          <button
-            key={c.id}
-            type="button"
-            onClick={() => setFilter(c.id)}
-            className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-              filter === c.id
-                ? "bg-spotify-green text-bg"
-                : "bg-chip text-fg"
-            }`}
+      <div className="sticky top-0 z-10 bg-bg px-4 pb-2 pt-2">
+        <div className="relative">
+          <svg
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
           >
-            {c.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex items-center justify-between px-4 py-2">
-        <button
-          type="button"
-          onClick={() => setSort((s) => (s === "recent" ? "title" : "recent"))}
-          className="flex items-center gap-2 text-sm font-medium text-fg"
-        >
-          <svg className="h-4 w-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3 7.5 7.5 3m0 0L12 7.5M7.5 3v13.5m13.5 0L16.5 21m0 0L12 16.5m4.5 4.5V7.5" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
           </svg>
-          {sort === "recent" ? "Recents" : "A–Z"}
-        </button>
-        <button
-          type="button"
-          onClick={() => setGrid((g) => !g)}
-          className="flex h-9 w-9 items-center justify-center rounded-full text-fg active:bg-chip"
-          aria-label={grid ? "List view" : "Grid view"}
-        >
-          {grid ? (
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
-            </svg>
-          ) : (
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z" />
-            </svg>
-          )}
-        </button>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Find in your library"
+            className="w-full rounded-lg bg-chip py-2.5 pl-9 pr-4 text-sm text-fg placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-fg/20"
+          />
+        </div>
       </div>
 
       {visibleTracks.length === 0 ? (
-        <p className="px-4 py-8 text-center text-sm text-muted">No songs match this filter.</p>
-      ) : grid ? (
-        <div className="grid grid-cols-2 gap-4 px-4 pb-4">
-          {visibleTracks.map((track) => (
-            <LibraryTrackRow
-              key={track.id}
-              track={track}
-              note={track.note}
-              onNoteClick={() => setEditingTrack(track)}
-              variant="grid"
-            />
-          ))}
-        </div>
+        <p className="px-4 py-8 text-center text-sm text-muted">
+          No songs match &ldquo;{search}&rdquo;
+        </p>
       ) : (
         <div className="flex flex-col pb-4">
           {visibleTracks.map((track) => (
@@ -238,7 +181,7 @@ export function LibraryContent() {
             disabled={loadingMore}
             className="rounded-full bg-chip px-6 py-2.5 text-sm font-medium text-fg active:bg-elevated disabled:opacity-50"
           >
-            {loadingMore ? "Loading…" : "Load more"}
+            {loadingMore ? "Loading\u2026" : "Load more"}
           </button>
         </div>
       )}

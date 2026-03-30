@@ -9,7 +9,7 @@ export default async function LibraryPage() {
   if (!session) redirect("/");
 
   return (
-    <main className="flex min-h-[100dvh] flex-col pb-[11rem]">
+    <main className="flex min-h-[100dvh] flex-col pb-24">
       <LibraryHeader
         imageUrl={session.user?.image}
         name={session.user?.name}
