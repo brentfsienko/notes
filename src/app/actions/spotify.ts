@@ -8,7 +8,6 @@ import {
   checkSavedTracks,
   getCurrentUser,
   getUserPlaylists,
-  getAllUserPlaylists,
   getPlaylistDetails,
   getPlaylistTracks,
 } from "@/lib/spotify";
@@ -110,43 +109,6 @@ async function enrichPlaylistItemsWithTotals(
         }
       }),
     );
-    /* Small gap between batches so we do not stack bursts on top of list paging. */
-    if (i + ENRICH_TOTALS_CHUNK < sparse.length) {
-      await new Promise((r) => setTimeout(r, 80));
-    }
-  }
-}
-
-/** One server action for library: sequential Spotify calls where possible to reduce 429s. */
-export async function fetchLibraryData() {
-  const session = await auth();
-  if (!session?.accessToken) throw new Error("Not authenticated");
-  if (session.error === "RefreshTokenError") throw new Error("TokenExpired");
-  if (!hasPlaylistReadScopes(session.scope)) {
-    throw new Error(
-      "Spotify playlist access missing. Sign out and connect again to approve playlist permissions.",
-    );
-  }
-  const token = session.accessToken;
-
-  try {
-    const savedPreview = await getSavedTracks(token, 0, 1);
-    const bundle = await getAllUserPlaylists(token);
-
-    const likedTotal = (savedPreview?.total as number) ?? 0;
-    const raw = bundle.items ?? [];
-    const merged = raw.map((p: Record<string, unknown>) => ({ ...p }));
-    await enrichPlaylistItemsWithTotals(token, merged);
-
-    return { likedTotal, playlists: merged };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    if (msg.includes("Spotify 429")) {
-      throw new Error(
-        "Spotify rate limited this request — wait a minute and tap retry, or try again with fewer tabs open.",
-      );
-    }
-    throw e;
   }
 }
 

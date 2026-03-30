@@ -167,35 +167,6 @@ export async function getUserPlaylists(accessToken: string, offset = 0, limit = 
   }
 }
 
-/**
- * Fetches every playlist from `/me/playlists` one page at a time.
- * Parallel paging was removed — it bursts the Web API and triggers 429 rate limits.
- */
-export async function getAllUserPlaylists(accessToken: string) {
-  const limit = 50;
-  const first = await getUserPlaylists(accessToken, 0, limit);
-  const items = [...(first.items ?? [])];
-  const total = first.total;
-
-  if (typeof total === "number" && total > items.length) {
-    const pageCount = Math.ceil(total / limit);
-    for (let page = 1; page < pageCount; page++) {
-      const p = await getUserPlaylists(accessToken, page * limit, limit);
-      items.push(...(p.items ?? []));
-    }
-    return { ...first, items };
-  }
-
-  let cur = first;
-  while (cur.next) {
-    const offset = items.length;
-    cur = await getUserPlaylists(accessToken, offset, limit);
-    items.push(...(cur.items ?? []));
-    if (!cur.items?.length) break;
-  }
-  return { ...first, items };
-}
-
 export async function getPlaylistDetails(accessToken: string, playlistId: string) {
   const narrowParams = new URLSearchParams({
     fields: "id,name,description,images,owner(display_name),tracks(total)",

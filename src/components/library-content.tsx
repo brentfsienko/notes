@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
-import { fetchLibraryData } from "@/app/actions/spotify";
+import { fetchUserPlaylists, fetchSavedTracksTotal } from "@/app/actions/spotify";
 
 interface Playlist {
   id: string;
@@ -94,11 +94,24 @@ export function LibraryContent() {
     setLoading(true);
     setError(null);
     try {
-      const { likedTotal, playlists: rows } = await fetchLibraryData();
-      setLikedTotal(likedTotal);
-      setPlaylists(
-        (rows as Playlist[]).filter((p) => p && p.id && p.name),
-      );
+      const [total] = await Promise.all([
+        fetchSavedTracksTotal(),
+        (async () => {
+          const merged: Playlist[] = [];
+          let offset = 0;
+          for (;;) {
+            const playlistData = await fetchUserPlaylists(offset, 50);
+            const items = (playlistData.items ?? []).filter(
+              (p: Playlist) => p && p.id && p.name,
+            ) as Playlist[];
+            merged.push(...items);
+            if (!playlistData.next) break;
+            offset += 50;
+          }
+          setPlaylists(merged);
+        })(),
+      ]);
+      setLikedTotal(total);
     } catch (e) {
       console.error("Failed to load library:", e);
       const msg = e instanceof Error ? e.message : String(e);
