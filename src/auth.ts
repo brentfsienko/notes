@@ -9,6 +9,7 @@ const SCOPES = [
 ].join(" ");
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  trustHost: true,
   providers: [
     Spotify({
       authorization: `https://accounts.spotify.com/authorize?scope=${encodeURIComponent(SCOPES)}`,
