@@ -17,10 +17,12 @@ export function LibraryContent() {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [likedTotal, setLikedTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const [playlistData, total] = await Promise.all([
         fetchUserPlaylists(0, 50),
@@ -28,6 +30,9 @@ export function LibraryContent() {
       ]);
       setPlaylists(playlistData.items ?? []);
       setLikedTotal(total);
+    } catch (e) {
+      console.error("Failed to load library:", e);
+      setError("couldn't load your library. try signing out and back in.");
     } finally {
       setLoading(false);
     }
@@ -61,6 +66,23 @@ export function LibraryContent() {
             </div>
           </div>
         ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
+        <p className="text-sm text-muted">{error}</p>
+        <button
+          onClick={load}
+          className="mt-4 rounded-lg border border-border px-5 py-2 text-sm text-fg active:bg-elevated transition-colors"
+        >
+          retry
+        </button>
+        <Link href="/auth/signout" className="mt-3 text-sm text-accent">
+          sign out
+        </Link>
       </div>
     );
   }

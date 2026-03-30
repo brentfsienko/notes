@@ -23,12 +23,14 @@ export function PlaylistContent({ playlistId }: { playlistId: string }) {
   const [hasMore, setHasMore] = useState(true);
   const [editingTrack, setEditingTrack] = useState<TrackWithNote | null>(null);
   const [search, setSearch] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const loadTracks = useCallback(
     async (currentOffset: number) => {
       const isInitial = currentOffset === 0;
       if (isInitial) setLoading(true);
       else setLoadingMore(true);
+      setError(null);
 
       try {
         const data = await fetchPlaylistTracks(playlistId, currentOffset);
@@ -72,6 +74,9 @@ export function PlaylistContent({ playlistId }: { playlistId: string }) {
         setTracks((prev) => (isInitial ? newTracks : [...prev, ...newTracks]));
         setHasMore(data.next !== null);
         setOffset(currentOffset + items.length);
+      } catch (e) {
+        console.error("Failed to load playlist tracks:", e);
+        if (isInitial) setError("couldn't load this playlist. try again.");
       } finally {
         setLoading(false);
         setLoadingMore(false);
@@ -124,6 +129,20 @@ export function PlaylistContent({ playlistId }: { playlistId: string }) {
             </div>
           </div>
         ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
+        <p className="text-sm text-muted">{error}</p>
+        <button
+          onClick={() => loadTracks(0)}
+          className="mt-4 rounded-lg border border-border px-5 py-2 text-sm text-fg active:bg-elevated transition-colors"
+        >
+          retry
+        </button>
       </div>
     );
   }

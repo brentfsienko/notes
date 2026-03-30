@@ -12,6 +12,7 @@ export function ProfileContent() {
   const [noteCount, setNoteCount] = useState<number | null>(null);
   const [savedCount, setSavedCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -24,6 +25,9 @@ export function ProfileContent() {
         setProfile(prof);
         setNoteCount(notes);
         setSavedCount(saved);
+      } catch (e) {
+        console.error("Failed to load profile:", e);
+        setError(true);
       } finally {
         setLoading(false);
       }
@@ -40,6 +44,14 @@ export function ProfileContent() {
           <div className="h-12 bg-elevated rounded w-20" />
           <div className="h-12 bg-elevated rounded w-20" />
         </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
+        <p className="text-sm text-muted">couldn&apos;t load your profile.</p>
       </div>
     );
   }
