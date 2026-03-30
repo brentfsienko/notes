@@ -24,9 +24,9 @@ function sleep(ms: number) {
   return new Promise<void>((r) => setTimeout(r, ms));
 }
 
-/** Retries on 429 using `Retry-After` when present, else exponential backoff (Spotify rate limits). */
+/** Retries on 429 briefly — long backoffs made library feel “stuck” in the browser. */
 async function spotifyFetch(url: string, accessToken: string, init?: RequestInit) {
-  const maxAttempts = 6;
+  const maxAttempts = 4;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const res = await fetch(url, {
       ...init,
@@ -40,7 +40,9 @@ async function spotifyFetch(url: string, accessToken: string, init?: RequestInit
       }
       const retryAfter = res.headers.get("Retry-After");
       const sec = retryAfter ? parseInt(retryAfter, 10) : NaN;
-      const waitMs = Number.isFinite(sec) && sec >= 0 ? (sec + 0.25) * 1000 : Math.min(800 * 2 ** attempt, 32_000);
+      const waitMs = Number.isFinite(sec) && sec >= 0
+        ? Math.min((sec + 0.25) * 1000, 10_000)
+        : Math.min(500 * 2 ** attempt, 4000);
       await sleep(waitMs);
       continue;
     }
