@@ -99,7 +99,7 @@ export async function getPlaylistTracks(accessToken: string, playlistId: string,
   const o = clampOffset(offset);
   const l = clampPageLimit(limit);
   const res = await spotifyFetch(
-    `${API}/playlists/${encodeURIComponent(playlistId)}/tracks?offset=${o}&limit=${l}&fields=items(added_at,track(id,name,artists(name),album(images))),next,total`,
+    `${API}/playlists/${encodeURIComponent(playlistId)}/tracks?offset=${o}&limit=${l}`,
     accessToken,
   );
   return res.json();

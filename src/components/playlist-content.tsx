@@ -35,12 +35,12 @@ export function PlaylistContent({ playlistId }: { playlistId: string }) {
       try {
         const data = await fetchPlaylistTracks(playlistId, currentOffset);
         const items = (data.items ?? []).filter(
-          (item: { track: { id: string } | null }) => item.track?.id,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (item: any) => item?.track?.id && item.track.type !== "episode",
         );
 
-        const trackIds = items.map(
-          (item: { track: { id: string } }) => item.track.id,
-        );
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const trackIds = items.map((item: any) => item.track.id as string);
         const notes = await getNotes(trackIds);
         const noteMap = new Map(
           notes.map((n: { spotifyTrackId: string; body: string }) => [
@@ -49,34 +49,27 @@ export function PlaylistContent({ playlistId }: { playlistId: string }) {
           ]),
         );
 
-        const newTracks: TrackWithNote[] = items.map(
-          (item: {
-            added_at?: string;
-            track: {
-              id: string;
-              name: string;
-              artists: Array<{ name: string }>;
-              album: { images: Array<{ url: string }> };
-            };
-          }) => {
-            const images = item.track.album.images;
-            return {
-              id: item.track.id,
-              name: item.track.name,
-              artist: item.track.artists.map((a) => a.name).join(", "),
-              albumArt: images[images.length > 1 ? 1 : 0]?.url ?? "",
-              note: (noteMap.get(item.track.id) as string) ?? "",
-              addedAt: item.added_at ?? "",
-            };
-          },
-        );
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const newTracks: TrackWithNote[] = items.map((item: any) => {
+          const t = item.track;
+          const images = t.album?.images ?? [];
+          return {
+            id: t.id,
+            name: t.name ?? "unknown",
+            artist: (t.artists ?? []).map((a: { name: string }) => a.name).join(", ") || "unknown",
+            albumArt: images[images.length > 1 ? 1 : 0]?.url ?? "",
+            note: (noteMap.get(t.id) as string) ?? "",
+            addedAt: item.added_at ?? "",
+          };
+        });
 
         setTracks((prev) => (isInitial ? newTracks : [...prev, ...newTracks]));
         setHasMore(data.next !== null);
         setOffset(currentOffset + items.length);
       } catch (e) {
         console.error("Failed to load playlist tracks:", e);
-        if (isInitial) setError("couldn't load this playlist. try again.");
+        const msg = e instanceof Error ? e.message : String(e);
+        if (isInitial) setError(`couldn't load this playlist: ${msg}`);
       } finally {
         setLoading(false);
         setLoadingMore(false);

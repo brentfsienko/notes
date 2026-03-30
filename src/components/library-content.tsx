@@ -36,7 +36,8 @@ export function LibraryContent() {
       setLikedTotal(total);
     } catch (e) {
       console.error("Failed to load library:", e);
-      setError("couldn't load your library. try signing out and back in.");
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(`couldn't load your library: ${msg}`);
     } finally {
       setLoading(false);
     }
