@@ -38,6 +38,7 @@ function GridIcon({ className }: { className?: string }) {
 }
 
 function playlistMetaLine(playlist: Playlist, mySpotifyId: string | undefined) {
+  const n = playlist.tracks?.total ?? 0;
   const ownerLabel = playlist.owner?.display_name ?? "playlist";
   const mine = mySpotifyId && playlist.owner?.id === mySpotifyId;
   const parts: string[] = [];
@@ -45,10 +46,7 @@ function playlistMetaLine(playlist: Playlist, mySpotifyId: string | undefined) {
   if (mine) parts.push("yours");
   else if (playlist.owner?.id) parts.push(`by ${ownerLabel}`);
   else parts.push(ownerLabel);
-  const n = playlist.tracks?.total;
-  const count =
-    typeof n === "number" && Number.isFinite(n) ? `${n} songs` : null;
-  return count ? `${parts.join(" · ")} · ${count}` : parts.join(" · ");
+  return `${parts.join(" · ")} · ${n} songs`;
 }
 
 export function LibraryContent() {
@@ -101,16 +99,14 @@ export function LibraryContent() {
         (async () => {
           const merged: Playlist[] = [];
           let offset = 0;
-          const pageSize = 50;
-          const maxPages = 80;
-          for (let page = 0; page < maxPages; page++) {
-            const playlistData = await fetchUserPlaylists(offset, pageSize);
+          for (;;) {
+            const playlistData = await fetchUserPlaylists(offset, 50);
             const items = (playlistData.items ?? []).filter(
               (p: Playlist) => p && p.id && p.name,
             ) as Playlist[];
             merged.push(...items);
             if (!playlistData.next) break;
-            offset += pageSize;
+            offset += 50;
           }
           setPlaylists(merged);
         })(),

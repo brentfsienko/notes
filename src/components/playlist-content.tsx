@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { CollectionHeader } from "@/components/collection-header";
 import { LibraryTrackRow } from "./library-track-row";
 import { NoteEditor } from "./note-editor";
 import { fetchPlaylistTracks, saveSpotifyTrack } from "@/app/actions/spotify";
@@ -17,46 +16,13 @@ interface TrackWithNote {
   addedAt: string;
 }
 
-export function PlaylistView({
-  playlistId,
-  initialTitle,
-  reportedTrackTotal,
-}: {
-  playlistId: string;
-  initialTitle: string;
-  reportedTrackTotal?: number | null;
-}) {
-  const [trackTotal, setTrackTotal] = useState<number | null>(
-    typeof reportedTrackTotal === "number" && Number.isFinite(reportedTrackTotal)
-      ? reportedTrackTotal
-      : null,
-  );
-
-  const subtitle =
-    trackTotal !== null ? `${trackTotal} ${trackTotal === 1 ? "song" : "songs"}` : undefined;
-
-  return (
-    <>
-      <CollectionHeader title={initialTitle} backHref="/library" subtitle={subtitle} />
-      <PlaylistContent
-        playlistId={playlistId}
-        reportedTrackTotal={reportedTrackTotal}
-        onResolvedTrackTotal={setTrackTotal}
-      />
-    </>
-  );
-}
-
 export function PlaylistContent({
   playlistId,
   reportedTrackTotal,
-  onResolvedTrackTotal,
 }: {
   playlistId: string;
   /** From Spotify playlist metadata (`tracks.total`) when the server can read it. */
   reportedTrackTotal?: number | null;
-  /** First page of `/items` includes `total` — used for the header when SSR metadata is missing. */
-  onResolvedTrackTotal?: (total: number) => void;
 }) {
   const [tracks, setTracks] = useState<TrackWithNote[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,10 +42,6 @@ export function PlaylistContent({
 
       try {
         const data = await fetchPlaylistTracks(playlistId, currentOffset);
-        if (isInitial && typeof data.total === "number" && Number.isFinite(data.total)) {
-          onResolvedTrackTotal?.(data.total);
-        }
-
         const items = (data.items ?? []).filter(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (row: any) => {
@@ -137,7 +99,7 @@ export function PlaylistContent({
         setLoadingMore(false);
       }
     },
-    [playlistId, onResolvedTrackTotal],
+    [playlistId],
   );
 
   useEffect(() => {

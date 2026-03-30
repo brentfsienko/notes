@@ -73,16 +73,43 @@ export async function fetchSavedTracksTotal() {
   return (data?.total as number) ?? 0;
 }
 
-/**
- * One page of `/me/playlists` only — no per-row `getPlaylistDetails` (that N+1 pattern
- * routinely exceeded serverless time limits so library requests never completed).
- */
 export async function fetchUserPlaylists(offset = 0, limit = 50) {
   const token = await getAccessTokenForPlaylists();
   const data = await getUserPlaylists(token, offset, limit);
-  const raw = data.items ?? [];
-  const items = raw.map((p: Record<string, unknown>) => ({ ...p }));
-  return { ...data, items };
+  const items = data.items ?? [];
+  const merged = items.map((p: Record<string, unknown>) => ({ ...p }));
+  const sparse = merged
+    .map((p: Record<string, unknown>, index: number) => ({ p, index }))
+    .filter(
+      (row: { p: Record<string, unknown>; index: number }) =>
+        typeof row.p.id === "string" &&
+        typeof (row.p.tracks as { total?: number } | undefined)?.total !== "number",
+    );
+  if (sparse.length === 0) return { ...data, items: merged };
+
+  const chunkSize = 6;
+  for (let i = 0; i < sparse.length; i += chunkSize) {
+    const chunk = sparse.slice(i, i + chunkSize);
+    await Promise.all(
+      chunk.map(async (row: { p: Record<string, unknown>; index: number }) => {
+        const { p, index } = row;
+        try {
+          const d = await getPlaylistDetails(token, p.id as string);
+          const total = d?.tracks?.total;
+          if (typeof total === "number") {
+            const cur = merged[index] as { tracks?: { href?: string; total?: number } };
+            merged[index] = {
+              ...cur,
+              tracks: { ...cur.tracks, total },
+            };
+          }
+        } catch {
+          /* ignore */
+        }
+      }),
+    );
+  }
+  return { ...data, items: merged };
 }
 
 export async function fetchPlaylistDetails(playlistId: string) {
