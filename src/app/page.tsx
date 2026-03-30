@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 export default async function Home() {
   const session = await auth();
-  if (session) redirect("/library");
+  if (session && session.error !== "RefreshTokenError") redirect("/library");
 
   return (
     <main className="flex flex-col items-center justify-center min-h-[100dvh] px-6 text-center">
