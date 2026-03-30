@@ -20,15 +20,39 @@ function headers(accessToken: string) {
   return { Authorization: `Bearer ${accessToken}` };
 }
 
+function sleep(ms: number) {
+  return new Promise<void>((r) => setTimeout(r, ms));
+}
+
+/** Retries 429 after `Retry-After` or short backoff — required for /me/playlists under rate limits. */
 async function spotifyFetch(url: string, accessToken: string, init?: RequestInit) {
-  const res = await fetch(url, {
-    ...init,
-    headers: { ...headers(accessToken), ...init?.headers },
-  });
-  if (!res.ok) {
-    throw new Error(`Spotify ${res.status} (${url}): ${await res.text()}`);
+  const maxAttempts = 5;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const res = await fetch(url, {
+      ...init,
+      headers: { ...headers(accessToken), ...init?.headers },
+    });
+
+    if (res.status === 429) {
+      const body = await res.text();
+      if (attempt + 1 >= maxAttempts) {
+        throw new Error(`Spotify 429 (${url}): ${body}`);
+      }
+      const retryAfter = res.headers.get("Retry-After");
+      const sec = retryAfter ? parseInt(retryAfter, 10) : NaN;
+      const waitMs = Number.isFinite(sec) && sec >= 0
+        ? Math.min((sec + 0.25) * 1000, 30_000)
+        : Math.min(750 * 2 ** attempt, 12_000);
+      await sleep(waitMs);
+      continue;
+    }
+
+    if (!res.ok) {
+      throw new Error(`Spotify ${res.status} (${url}): ${await res.text()}`);
+    }
+    return res;
   }
-  return res;
+  throw new Error(`Spotify: too many retries (${url})`);
 }
 
 /** Must match `spotifyFetch` errors: `Spotify 403 (url): ...` — note there is no colon after 403. */
