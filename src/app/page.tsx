@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 export default async function Home() {
   const session = await auth();
-  if (session) redirect("/library");
+  if (session) redirect("/home");
 
   return (
     <main className="flex flex-col items-center justify-center min-h-[100dvh] px-6 text-center">
@@ -20,12 +20,12 @@ export default async function Home() {
         <form
           action={async () => {
             "use server";
-            await signIn("spotify", { redirectTo: "/library" });
+            await signIn("spotify", { redirectTo: "/home" });
           }}
         >
           <button
             type="submit"
-            className="mt-10 w-full py-3.5 rounded-2xl bg-sage text-bg font-medium text-[15px] active:bg-moss transition-colors"
+            className="mt-10 w-full rounded-full bg-spotify-green py-3.5 text-[15px] font-bold text-bg active:bg-spotify-green-dim transition-colors"
           >
             Connect with Spotify
           </button>

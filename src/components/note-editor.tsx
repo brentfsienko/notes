@@ -46,15 +46,15 @@ export function NoteEditor({
   return (
     <Drawer.Root open={open} onOpenChange={onOpenChange}>
       <Drawer.Portal>
-        <Drawer.Overlay className="fixed inset-0 bg-black/50 z-50" />
-        <Drawer.Content className="fixed bottom-0 left-0 right-0 z-50 bg-surface rounded-t-2xl max-h-[85dvh] flex flex-col safe-bottom">
-          <div className="mx-auto w-12 h-1.5 shrink-0 rounded-full bg-border mt-3 mb-2" />
+        <Drawer.Overlay className="fixed inset-0 z-50 bg-black/60" />
+        <Drawer.Content className="fixed bottom-0 left-0 right-0 z-50 flex max-h-[85dvh] flex-col rounded-t-2xl bg-surface safe-bottom">
+          <div className="mx-auto mb-2 mt-3 h-1.5 w-12 shrink-0 rounded-full bg-border" />
 
           <Drawer.Title className="sr-only">
             Note for {track.name}
           </Drawer.Title>
 
-          <div className="px-5 pb-6 pt-2 flex flex-col gap-4 overflow-y-auto">
+          <div className="flex flex-col gap-4 overflow-y-auto px-5 pb-6 pt-2">
             <div className="flex items-center gap-3">
               {track.albumArt ? (
                 <Image
@@ -62,16 +62,16 @@ export function NoteEditor({
                   alt=""
                   width={48}
                   height={48}
-                  className="rounded-lg shrink-0"
+                  className="shrink-0 rounded-md"
                 />
               ) : (
-                <div className="w-12 h-12 rounded-lg shrink-0 bg-elevated" />
+                <div className="h-12 w-12 shrink-0 rounded-md bg-elevated" />
               )}
               <div className="min-w-0">
-                <p className="font-medium text-fg truncate text-[15px]">
+                <p className="truncate text-[15px] font-medium text-fg">
                   {track.name}
                 </p>
-                <p className="text-sm text-muted truncate">{track.artist}</p>
+                <p className="truncate text-sm text-muted">{track.artist}</p>
               </div>
             </div>
 
@@ -80,7 +80,7 @@ export function NoteEditor({
               onChange={(e) => setBody(e.target.value)}
               placeholder="Why does this song matter to you?"
               rows={4}
-              className="w-full p-3.5 rounded-xl bg-elevated border border-border text-fg placeholder:text-faint resize-none text-sm leading-relaxed focus:outline-none focus:border-sage transition-colors"
+              className="w-full resize-none rounded-xl border border-border bg-elevated p-3.5 text-sm leading-relaxed text-fg placeholder:text-faint focus:border-spotify-green focus:outline-none"
               autoFocus
             />
 
@@ -88,7 +88,7 @@ export function NoteEditor({
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="flex-1 py-3 rounded-xl bg-sage text-bg font-medium text-sm active:bg-moss transition-colors disabled:opacity-50"
+                className="flex-1 rounded-xl bg-spotify-green py-3 text-sm font-bold text-bg active:bg-spotify-green-dim disabled:opacity-50"
               >
                 {saving ? "Saving\u2026" : "Save note"}
               </button>
@@ -98,7 +98,7 @@ export function NoteEditor({
                     await onDelete();
                     onOpenChange(false);
                   }}
-                  className="px-5 py-3 rounded-xl border border-border text-muted text-sm active:bg-elevated transition-colors"
+                  className="rounded-xl border border-border px-5 py-3 text-sm text-muted active:bg-elevated"
                 >
                   Remove
                 </button>

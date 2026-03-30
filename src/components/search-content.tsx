@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { TrackCard } from "./track-card";
 import { NoteEditor } from "./note-editor";
 import {
@@ -19,13 +20,21 @@ interface SearchTrack {
   saved: boolean;
 }
 
-export function SearchContent() {
+function SearchContentInner() {
+  const params = useSearchParams();
+  const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchTrack[]>([]);
   const [searching, setSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [editingTrack, setEditingTrack] = useState<SearchTrack | null>(null);
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (params.get("add") === "1") {
+      inputRef.current?.focus();
+    }
+  }, [params]);
 
   const handleSearch = useCallback(async () => {
     const q = query.trim();
@@ -103,7 +112,7 @@ export function SearchContent() {
 
   return (
     <>
-      <div className="sticky top-0 z-10 bg-bg/80 backdrop-blur-lg px-5 pt-3 pb-3">
+      <div className="sticky top-0 z-10 bg-bg px-4 pb-3 pt-2">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -112,16 +121,18 @@ export function SearchContent() {
           className="flex gap-2"
         >
           <input
-            type="text"
+            ref={inputRef}
+            type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search for a song\u2026"
-            className="flex-1 px-4 py-2.5 rounded-xl bg-surface border border-border text-fg placeholder:text-faint text-sm focus:outline-none focus:border-sage transition-colors"
+            placeholder="What do you want to listen to?"
+            enterKeyHint="search"
+            className="flex-1 rounded-full border-0 bg-chip px-4 py-3 text-sm text-fg placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-fg/20"
           />
           <button
             type="submit"
             disabled={searching || !query.trim()}
-            className="px-5 py-2.5 rounded-xl bg-sage text-bg text-sm font-medium active:bg-moss transition-colors disabled:opacity-50"
+            className="rounded-full bg-fg px-5 py-3 text-sm font-bold text-bg active:opacity-90 disabled:opacity-40"
           >
             {searching ? "\u2026" : "Go"}
           </button>
@@ -133,12 +144,12 @@ export function SearchContent() {
           {Array.from({ length: 5 }).map((_, i) => (
             <div
               key={i}
-              className="flex items-center gap-3 px-5 py-3.5 animate-pulse"
+              className="flex items-center gap-3 px-4 py-2.5 animate-pulse"
             >
-              <div className="w-12 h-12 rounded-lg bg-elevated" />
+              <div className="h-14 w-14 shrink-0 rounded-md bg-chip" />
               <div className="flex-1 space-y-2">
-                <div className="h-4 bg-elevated rounded w-3/4" />
-                <div className="h-3 bg-elevated rounded w-1/2" />
+                <div className="h-4 w-3/4 rounded bg-chip" />
+                <div className="h-3 w-1/2 rounded bg-chip" />
               </div>
             </div>
           ))}
@@ -146,7 +157,7 @@ export function SearchContent() {
       )}
 
       {results.length > 0 && (
-        <div className="flex flex-col divide-y divide-border/50 pt-1">
+        <div className="flex flex-col pb-4">
           {results.map((track) => (
             <TrackCard
               key={track.id}
@@ -155,14 +166,15 @@ export function SearchContent() {
               onNoteClick={() => setEditingTrack(track)}
               action={
                 track.saved ? (
-                  <span className="text-xs text-sage font-medium px-3 py-1.5">
+                  <span className="px-2 text-xs font-semibold text-spotify-green">
                     Saved
                   </span>
                 ) : (
                   <button
+                    type="button"
                     onClick={() => handleSave(track.id)}
                     disabled={savingIds.has(track.id)}
-                    className="px-3 py-1.5 rounded-lg border border-sage text-sage text-xs font-medium active:bg-sage-dim transition-colors disabled:opacity-50"
+                    className="rounded-full border border-fg/30 px-3 py-1.5 text-xs font-bold text-fg active:bg-chip disabled:opacity-50"
                   >
                     {savingIds.has(track.id) ? "\u2026" : "Save"}
                   </button>
@@ -174,14 +186,16 @@ export function SearchContent() {
       )}
 
       {hasSearched && !searching && results.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 px-5 text-center">
-          <p className="text-muted text-sm">No results found.</p>
+        <div className="flex flex-col items-center justify-center px-5 py-16 text-center">
+          <p className="text-sm text-muted">No results found.</p>
         </div>
       )}
 
       {!hasSearched && (
-        <div className="flex flex-col items-center justify-center py-20 px-5 text-center">
-          <p className="text-muted text-[15px]">Find a song to save and annotate.</p>
+        <div className="flex flex-col items-center justify-center px-5 py-20 text-center">
+          <p className="text-[15px] text-muted">
+            Find a song to save and annotate.
+          </p>
         </div>
       )}
 
@@ -195,5 +209,17 @@ export function SearchContent() {
         onSave={handleSaveNote}
       />
     </>
+  );
+}
+
+export function SearchContent() {
+  return (
+    <Suspense
+      fallback={
+        <div className="px-4 py-8 text-center text-sm text-muted">Loading…</div>
+      }
+    >
+      <SearchContentInner />
+    </Suspense>
   );
 }

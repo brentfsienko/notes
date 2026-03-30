@@ -16,40 +16,34 @@ interface TrackCardProps {
 
 export function TrackCard({ track, note, onNoteClick, action }: TrackCardProps) {
   return (
-    <div className="flex items-start gap-3 px-5 py-3.5">
-      {track.albumArt ? (
-        <Image
-          src={track.albumArt}
-          alt=""
-          width={48}
-          height={48}
-          className="rounded-lg shrink-0 mt-0.5"
-        />
-      ) : (
-        <div className="w-12 h-12 rounded-lg shrink-0 mt-0.5 bg-elevated" />
-      )}
-      <div className="flex-1 min-w-0">
-        <p className="font-medium text-fg truncate text-[15px] leading-tight">
-          {track.name}
-        </p>
-        <p className="text-sm text-muted truncate mt-0.5">{track.artist}</p>
-        {note ? (
-          <button
-            onClick={onNoteClick}
-            className="mt-1.5 text-sm text-sage leading-snug line-clamp-2 text-left"
-          >
-            {note}
-          </button>
-        ) : (
-          <button
-            onClick={onNoteClick}
-            className="mt-1.5 text-sm text-faint active:text-muted transition-colors"
-          >
-            Add a note&hellip;
-          </button>
-        )}
-      </div>
-      {action && <div className="shrink-0 mt-1">{action}</div>}
+    <div className="flex items-center gap-3 px-4 py-2.5">
+      <button
+        type="button"
+        onClick={onNoteClick}
+        className="flex min-w-0 flex-1 items-center gap-3 text-left active:opacity-80"
+      >
+        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md bg-elevated">
+          {track.albumArt ? (
+            <Image
+              src={track.albumArt}
+              alt=""
+              fill
+              sizes="56px"
+              className="object-cover"
+            />
+          ) : null}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-base font-semibold text-fg">{track.name}</p>
+          <p className="truncate text-sm text-muted">Song · {track.artist}</p>
+          {note ? (
+            <p className="mt-0.5 line-clamp-1 text-sm text-spotify-green">{note}</p>
+          ) : (
+            <p className="mt-0.5 text-sm text-faint">Add a note…</p>
+          )}
+        </div>
+      </button>
+      {action && <div className="shrink-0">{action}</div>}
     </div>
   );
 }
