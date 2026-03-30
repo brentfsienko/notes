@@ -128,7 +128,7 @@ export async function getUserPlaylists(accessToken: string, offset = 0, limit = 
     limit: String(l),
     /** Ask for `tracks.total` explicitly; default responses sometimes omit it. */
     fields:
-      "items(id,name,images,owner(display_name),tracks(href,total)),next,previous,total",
+      "items(id,name,images,owner(id,display_name),collaborative,public,tracks(href,total)),next,previous,total",
   });
   try {
     const res = await spotifyFetch(`${API}/me/playlists?${params}`, accessToken);

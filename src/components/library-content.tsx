@@ -3,12 +3,14 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useSession } from "next-auth/react";
 import { fetchUserPlaylists, fetchSavedTracksTotal } from "@/app/actions/spotify";
 
 interface Playlist {
   id: string;
   name: string;
-  owner?: { display_name?: string };
+  owner?: { id?: string; display_name?: string };
+  collaborative?: boolean;
   images: Array<{ url: string }>;
   tracks?: { total: number };
 }
@@ -18,6 +20,7 @@ type ViewMode = "list" | "grid";
 
 const SORT_STORAGE = "oto-library-sort";
 const VIEW_STORAGE = "oto-library-view";
+const MINE_ONLY_STORAGE = "oto-library-mine-only";
 
 function ListIcon({ className }: { className?: string }) {
   return (
@@ -35,7 +38,22 @@ function GridIcon({ className }: { className?: string }) {
   );
 }
 
+function playlistMetaLine(playlist: Playlist, mySpotifyId: string | undefined) {
+  const n = playlist.tracks?.total ?? 0;
+  const ownerLabel = playlist.owner?.display_name ?? "playlist";
+  const mine = mySpotifyId && playlist.owner?.id === mySpotifyId;
+  const parts: string[] = [];
+  if (playlist.collaborative) parts.push("collaborative");
+  if (mine) parts.push("yours");
+  else if (playlist.owner?.id) parts.push(`by ${ownerLabel}`);
+  else parts.push(ownerLabel);
+  return `${parts.join(" · ")} · ${n} songs`;
+}
+
 export function LibraryContent() {
+  const { data: session } = useSession();
+  const mySpotifyId = session?.spotifyId;
+
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [likedTotal, setLikedTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,6 +61,7 @@ export function LibraryContent() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("recent");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [mineOnly, setMineOnly] = useState(false);
 
   useEffect(() => {
     try {
@@ -52,6 +71,7 @@ export function LibraryContent() {
       }
       const v = localStorage.getItem(VIEW_STORAGE);
       if (v === "list" || v === "grid") setViewMode(v);
+      if (localStorage.getItem(MINE_ONLY_STORAGE) === "1") setMineOnly(true);
     } catch {
       /* ignore */
     }
@@ -72,6 +92,14 @@ export function LibraryContent() {
       /* ignore */
     }
   }, [viewMode]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(MINE_ONLY_STORAGE, mineOnly ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, [mineOnly]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -108,15 +136,20 @@ export function LibraryContent() {
     load();
   }, [load]);
 
+  const ownedOrAll = useMemo(() => {
+    if (!mineOnly || !mySpotifyId) return playlists;
+    return playlists.filter((p) => p.owner?.id === mySpotifyId);
+  }, [playlists, mineOnly, mySpotifyId]);
+
   const filtered = useMemo(() => {
-    if (!search.trim()) return playlists;
+    if (!search.trim()) return ownedOrAll;
     const q = search.toLowerCase();
-    return playlists.filter(
+    return ownedOrAll.filter(
       (p) =>
         p.name.toLowerCase().includes(q) ||
         (p.owner?.display_name ?? "").toLowerCase().includes(q),
     );
-  }, [playlists, search]);
+  }, [ownedOrAll, search]);
 
   const sortedPlaylists = useMemo(() => {
     if (sortBy === "recent") return filtered;
@@ -226,6 +259,18 @@ export function LibraryContent() {
             </button>
           </div>
         </div>
+        <label className="mt-2 flex cursor-pointer items-center gap-2 px-0.5 text-xs text-muted">
+          <input
+            type="checkbox"
+            className="rounded border-border text-accent focus:ring-accent/30"
+            checked={mineOnly}
+            onChange={(e) => setMineOnly(e.target.checked)}
+          />
+          <span className="lowercase">only playlists I own</span>
+        </label>
+        <p className="mt-1 px-0.5 text-[11px] leading-snug text-faint lowercase">
+          following or collaborative playlists appear because spotify lists them in your library; turn this on to hide anything you don&apos;t own.
+        </p>
       </div>
 
       <div className="flex flex-col pb-4">
@@ -300,9 +345,7 @@ export function LibraryContent() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[15px] font-normal text-fg">{playlist.name}</p>
-                <p className="truncate text-sm text-muted">
-                  {playlist.owner?.display_name ?? "playlist"} {"\u00B7"} {playlist.tracks?.total ?? 0} songs
-                </p>
+                <p className="truncate text-sm text-muted">{playlistMetaLine(playlist, mySpotifyId)}</p>
               </div>
               <svg className="h-4 w-4 shrink-0 text-faint" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
@@ -336,9 +379,7 @@ export function LibraryContent() {
                 </div>
                 <div className="min-w-0 px-0.5">
                   <p className="line-clamp-2 text-sm font-normal text-fg">{playlist.name}</p>
-                  <p className="mt-0.5 line-clamp-1 text-xs text-muted">
-                    {playlist.owner?.display_name ?? "playlist"} {"\u00B7"} {playlist.tracks?.total ?? 0}
-                  </p>
+                  <p className="mt-0.5 line-clamp-2 text-xs text-muted">{playlistMetaLine(playlist, mySpotifyId)}</p>
                 </div>
               </Link>
             ))}
