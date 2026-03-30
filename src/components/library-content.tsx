@@ -1,10 +1,26 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
-import { fetchLibraryData } from "@/app/actions/spotify";
+import { fetchLibraryInitial, fetchUserPlaylists } from "@/app/actions/spotify";
+
+const PLAYLIST_PAGE = 50;
+/** Safety cap so one session cannot fan out unbounded `/me/playlists` calls. */
+const MAX_PLAYLIST_PAGES = 80;
+/**
+ * Minimum gap between client-triggered playlist page fetches. Spotify rate limits use a
+ * rolling window; lazy-loading + spacing avoids bursting many requests at once.
+ * @see https://developer.spotify.com/documentation/web-api/concepts/rate-limits
+ */
+const MIN_MS_BETWEEN_PLAYLIST_PAGES = 550;
 
 interface Playlist {
   id: string;
@@ -59,6 +75,16 @@ export function LibraryContent() {
   const [likedTotal, setLikedTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** Extra pages after the first (from `fetchLibraryInitial`); null = no more from Spotify. */
+  const [playlistNextOffset, setPlaylistNextOffset] = useState<number | null>(null);
+  const [playlistPagesLoaded, setPlaylistPagesLoaded] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [playlistPageError, setPlaylistPageError] = useState<string | null>(null);
+
+  const lastPlaylistPageAtRef = useRef(0);
+  const loadingMoreInFlightRef = useRef(false);
+  const loadMorePlaylistsRef = useRef<() => Promise<void>>(async () => {});
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("recent");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
@@ -92,15 +118,74 @@ export function LibraryContent() {
     }
   }, [viewMode]);
 
+  const waitPlaylistPageGap = useCallback(async () => {
+    const now = Date.now();
+    const elapsed = now - lastPlaylistPageAtRef.current;
+    const need = Math.max(0, MIN_MS_BETWEEN_PLAYLIST_PAGES - elapsed);
+    if (need > 0) await new Promise((r) => setTimeout(r, need));
+  }, []);
+
+  const loadMorePlaylists = useCallback(async () => {
+    if (playlistNextOffset === null || loadingMoreInFlightRef.current) return;
+    if (playlistPagesLoaded >= MAX_PLAYLIST_PAGES) return;
+
+    loadingMoreInFlightRef.current = true;
+    setLoadingMore(true);
+    setPlaylistPageError(null);
+    try {
+      await waitPlaylistPageGap();
+      const page = await fetchUserPlaylists(playlistNextOffset, PLAYLIST_PAGE);
+      lastPlaylistPageAtRef.current = Date.now();
+
+      const items = (page.items ?? []).filter(
+        (p: Playlist) => p && p.id && p.name,
+      ) as Playlist[];
+      setPlaylists((prev) => [...prev, ...items]);
+
+      const nextPageCount = playlistPagesLoaded + 1;
+      setPlaylistPagesLoaded(nextPageCount);
+
+      const hasNext =
+        Boolean(page.next) && nextPageCount < MAX_PLAYLIST_PAGES;
+      setPlaylistNextOffset(hasNext ? playlistNextOffset + PLAYLIST_PAGE : null);
+    } catch (e) {
+      console.error("Failed to load more playlists:", e);
+      const msg = e instanceof Error ? e.message : String(e);
+      setPlaylistPageError(
+        msg.startsWith("Spotify rate limited") || msg.includes("rate limit")
+          ? msg
+          : `couldn't load more playlists: ${msg}`,
+      );
+    } finally {
+      loadingMoreInFlightRef.current = false;
+      setLoadingMore(false);
+    }
+  }, [
+    playlistNextOffset,
+    playlistPagesLoaded,
+    waitPlaylistPageGap,
+  ]);
+
+  loadMorePlaylistsRef.current = loadMorePlaylists;
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setPlaylistPageError(null);
+    setPlaylistNextOffset(null);
+    setPlaylistPagesLoaded(0);
     try {
-      const { likedTotal, playlists: rows } = await fetchLibraryData();
+      const { likedTotal, playlists: firstRows, nextOffset } = await fetchLibraryInitial();
       setLikedTotal(likedTotal);
-      setPlaylists(
-        (rows as unknown as Playlist[]).filter((p) => p && p.id && p.name),
+
+      const merged: Playlist[] = (firstRows as unknown as Playlist[]).filter(
+        (p) => p && p.id && p.name,
       );
+
+      setPlaylists(merged);
+      setPlaylistPagesLoaded(1);
+      setPlaylistNextOffset(nextOffset);
+      lastPlaylistPageAtRef.current = Date.now();
     } catch (e) {
       console.error("Failed to load library:", e);
       const msg = e instanceof Error ? e.message : String(e);
@@ -117,6 +202,22 @@ export function LibraryContent() {
   useEffect(() => {
     load();
   }, [load]);
+
+  /** Lazy-load the next playlist page when the sentinel is near the viewport. */
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || playlistNextOffset === null) return;
+
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const hit = entries.some((e) => e.isIntersecting);
+        if (hit) void loadMorePlaylistsRef.current();
+      },
+      { root: null, rootMargin: "280px", threshold: 0 },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [playlistNextOffset, playlists.length]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return playlists;
@@ -355,6 +456,35 @@ export function LibraryContent() {
           <p className="px-4 py-8 text-center text-sm text-muted">
             {`no results for \u201C${search}\u201D`}
           </p>
+        )}
+
+        {playlistNextOffset !== null && (
+          <div className="flex flex-col items-center gap-2 px-4 pb-6 pt-4">
+            <div ref={sentinelRef} className="h-8 w-full shrink-0" aria-hidden />
+            {loadingMore && (
+              <p className="text-xs text-muted">loading more playlists…</p>
+            )}
+            <button
+              type="button"
+              onClick={() => void loadMorePlaylists()}
+              disabled={loadingMore}
+              className="rounded-lg border border-border px-4 py-2 text-xs lowercase text-fg transition-colors active:bg-elevated disabled:opacity-50"
+            >
+              load more playlists
+            </button>
+            {playlistPageError && (
+              <div className="flex max-w-sm flex-col items-center gap-2 text-center">
+                <p className="text-xs text-muted">{playlistPageError}</p>
+                <button
+                  type="button"
+                  onClick={() => void loadMorePlaylists()}
+                  className="rounded-lg border border-border px-4 py-1.5 text-xs text-fg active:bg-elevated"
+                >
+                  try again
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </>

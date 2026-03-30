@@ -74,10 +74,11 @@ export async function fetchSavedTracksTotal() {
 }
 
 /**
- * One server action for the whole library: single `auth()`, then sequential Spotify calls.
- * Replaces N+1 client round-trips (each re-authenticating) that amplified rate limits.
+ * First chunk of library data only (liked count + first playlist page).
+ * Remaining pages are loaded from the client via `fetchUserPlaylists` (lazy / on scroll)
+ * with spacing between calls — see Spotify rate limits (rolling window + Retry-After on 429).
  */
-export async function fetchLibraryData() {
+export async function fetchLibraryInitial() {
   const session = await auth();
   if (!session?.accessToken) throw new Error("Not authenticated");
   if (session.error === "RefreshTokenError") throw new Error("TokenExpired");
@@ -92,19 +93,12 @@ export async function fetchLibraryData() {
     const savedPreview = await getSavedTracks(token, 0, 1);
     const likedTotal = (savedPreview?.total as number) ?? 0;
 
-    const pageSize = 50;
-    const maxPages = 80;
-    const playlists: Record<string, unknown>[] = [];
-    let offset = 0;
-    for (let page = 0; page < maxPages; page++) {
-      const data = await getUserPlaylists(token, offset, pageSize);
-      const raw = data.items ?? [];
-      playlists.push(...raw.map((p: Record<string, unknown>) => ({ ...p })));
-      if (!data.next) break;
-      offset += pageSize;
-    }
+    const data = await getUserPlaylists(token, 0, 50);
+    const raw = data.items ?? [];
+    const playlists = raw.map((p: Record<string, unknown>) => ({ ...p }));
+    const nextOffset = data.next ? 50 : null;
 
-    return { likedTotal, playlists };
+    return { likedTotal, playlists, nextOffset };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     if (msg.includes("Spotify 429")) {
@@ -116,7 +110,7 @@ export async function fetchLibraryData() {
   }
 }
 
-/** One `/me/playlists` page — prefer `fetchLibraryData` for the library screen to avoid duplicate auth. */
+/** One `/me/playlists` page — used after `fetchLibraryInitial` for remaining offsets. */
 export async function fetchUserPlaylists(offset = 0, limit = 50) {
   const token = await getAccessTokenForPlaylists();
   const data = await getUserPlaylists(token, offset, limit);

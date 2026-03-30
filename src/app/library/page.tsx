@@ -4,6 +4,9 @@ import { AppBottomChrome } from "@/components/app-bottom-chrome";
 import { LibraryContent } from "@/components/library-content";
 import { LibraryHeader } from "@/components/library-header";
 
+/** Allow chained playlist-page server actions to finish on Vercel (Pro plan supports up to 300s). */
+export const maxDuration = 60;
+
 export default async function LibraryPage() {
   let session;
   try {

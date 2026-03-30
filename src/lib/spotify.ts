@@ -24,9 +24,26 @@ function sleep(ms: number) {
   return new Promise<void>((r) => setTimeout(r, ms));
 }
 
-/** Retries 429 after `Retry-After` or short backoff — required for /me/playlists under rate limits. */
+/**
+ * Spotify applies a rolling ~30s window per app; 429 responses usually include
+ * `Retry-After` (seconds). See:
+ * https://developer.spotify.com/documentation/web-api/concepts/rate-limits
+ */
+function parseRetryAfterSeconds(header: string | null): number | null {
+  if (!header) return null;
+  const n = Number.parseFloat(header.trim());
+  if (!Number.isFinite(n) || n < 0) return null;
+  /** Cap a single wait so a bad header cannot hang the serverless function. */
+  return Math.min(n, 120);
+}
+
+function retryAfterJitterMs(): number {
+  return Math.floor(Math.random() * 400);
+}
+
+/** Retries 429: wait `Retry-After` seconds (per Spotify docs), else exponential backoff. */
 async function spotifyFetch(url: string, accessToken: string, init?: RequestInit) {
-  const maxAttempts = 5;
+  const maxAttempts = 8;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const res = await fetch(url, {
       ...init,
@@ -38,11 +55,11 @@ async function spotifyFetch(url: string, accessToken: string, init?: RequestInit
       if (attempt + 1 >= maxAttempts) {
         throw new Error(`Spotify 429 (${url}): ${body}`);
       }
-      const retryAfter = res.headers.get("Retry-After");
-      const sec = retryAfter ? parseInt(retryAfter, 10) : NaN;
-      const waitMs = Number.isFinite(sec) && sec >= 0
-        ? Math.min((sec + 0.25) * 1000, 30_000)
-        : Math.min(750 * 2 ** attempt, 12_000);
+      const sec = parseRetryAfterSeconds(res.headers.get("Retry-After"));
+      const waitMs =
+        sec !== null
+          ? sec * 1000 + retryAfterJitterMs()
+          : Math.min(750 * 2 ** attempt, 15_000) + retryAfterJitterMs();
       await sleep(waitMs);
       continue;
     }
