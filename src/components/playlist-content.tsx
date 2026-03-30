@@ -16,7 +16,14 @@ interface TrackWithNote {
   addedAt: string;
 }
 
-export function PlaylistContent({ playlistId }: { playlistId: string }) {
+export function PlaylistContent({
+  playlistId,
+  reportedTrackTotal,
+}: {
+  playlistId: string;
+  /** From Spotify playlist metadata (`tracks.total`) when the server can read it. */
+  reportedTrackTotal?: number | null;
+}) {
   const [tracks, setTracks] = useState<TrackWithNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -37,7 +44,9 @@ export function PlaylistContent({ playlistId }: { playlistId: string }) {
         const data = await fetchPlaylistTracks(playlistId, currentOffset);
         const items = (data.items ?? []).filter(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (item: any) => item?.track?.id && item.track.type !== "episode",
+          (item: any) =>
+            item?.track?.id &&
+            (item.track.type === undefined || item.track.type === "track"),
         );
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -155,9 +164,35 @@ export function PlaylistContent({ playlistId }: { playlistId: string }) {
   }
 
   if (tracks.length === 0) {
+    const spotifyPlaylistUrl = `https://open.spotify.com/playlist/${encodeURIComponent(playlistId)}`;
+    const likelyApiBlock =
+      typeof reportedTrackTotal === "number" && reportedTrackTotal > 0;
+
     return (
       <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
-        <p className="text-sm text-fg">this playlist is empty</p>
+        {likelyApiBlock ? (
+          <>
+            <p className="text-sm text-fg">
+              spotify isn&apos;t returning songs to this app for this playlist (web api restriction or dev app limits), even though it has songs in spotify.
+            </p>
+            <p className="mt-2 text-xs text-muted">
+              your route <span className="break-all text-faint">/playlist/{playlistId}</span> loads fine — the block is on spotify&apos;s side when listing tracks.
+            </p>
+            <a
+              href={spotifyPlaylistUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-6 rounded-lg border border-border px-5 py-2.5 text-sm text-accent active:bg-elevated transition-colors"
+            >
+              open in spotify
+            </a>
+            <p className="mt-4 max-w-sm text-xs text-muted">
+              if this never resolves, check the spotify developer dashboard: development mode / quota extension, and try removing the app from your spotify account then reconnecting.
+            </p>
+          </>
+        ) : (
+          <p className="text-sm text-fg">this playlist is empty</p>
+        )}
       </div>
     );
   }

@@ -16,10 +16,15 @@ export default async function PlaylistPage({
 
   const { id } = await params;
   let title = "playlist";
+  let reportedTrackTotal: number | null = null;
   try {
     const playlist = await fetchPlaylistDetails(id);
     if (playlist?.name && typeof playlist.name === "string") {
       title = playlist.name;
+    }
+    const t = playlist?.tracks?.total;
+    if (typeof t === "number" && Number.isFinite(t)) {
+      reportedTrackTotal = t;
     }
   } catch {
     /* Client still loads tracks; header falls back if metadata is forbidden. */
@@ -28,7 +33,7 @@ export default async function PlaylistPage({
   return (
     <main className="flex min-h-[100dvh] flex-col pb-24">
       <CollectionHeader title={title} backHref="/library" />
-      <PlaylistContent playlistId={id} />
+      <PlaylistContent playlistId={id} reportedTrackTotal={reportedTrackTotal} />
       <AppBottomChrome />
     </main>
   );
