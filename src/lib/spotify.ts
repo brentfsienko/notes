@@ -20,15 +20,37 @@ function headers(accessToken: string) {
   return { Authorization: `Bearer ${accessToken}` };
 }
 
+function sleep(ms: number) {
+  return new Promise<void>((r) => setTimeout(r, ms));
+}
+
+/** Retries on 429 using `Retry-After` when present, else exponential backoff (Spotify rate limits). */
 async function spotifyFetch(url: string, accessToken: string, init?: RequestInit) {
-  const res = await fetch(url, {
-    ...init,
-    headers: { ...headers(accessToken), ...init?.headers },
-  });
-  if (!res.ok) {
-    throw new Error(`Spotify ${res.status} (${url}): ${await res.text()}`);
+  const maxAttempts = 6;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const res = await fetch(url, {
+      ...init,
+      headers: { ...headers(accessToken), ...init?.headers },
+    });
+
+    if (res.status === 429) {
+      const body = await res.text();
+      if (attempt + 1 >= maxAttempts) {
+        throw new Error(`Spotify 429 (${url}): ${body}`);
+      }
+      const retryAfter = res.headers.get("Retry-After");
+      const sec = retryAfter ? parseInt(retryAfter, 10) : NaN;
+      const waitMs = Number.isFinite(sec) && sec >= 0 ? (sec + 0.25) * 1000 : Math.min(800 * 2 ** attempt, 32_000);
+      await sleep(waitMs);
+      continue;
+    }
+
+    if (!res.ok) {
+      throw new Error(`Spotify ${res.status} (${url}): ${await res.text()}`);
+    }
+    return res;
   }
-  return res;
+  throw new Error(`Spotify: too many retries (${url})`);
 }
 
 /** Must match `spotifyFetch` errors: `Spotify 403 (url): ...` — note there is no colon after 403. */
@@ -146,8 +168,8 @@ export async function getUserPlaylists(accessToken: string, offset = 0, limit = 
 }
 
 /**
- * Fetches every playlist from `/me/playlists` with minimal round-trips:
- * when `total` is present, remaining pages are requested in parallel; otherwise follows `next` sequentially.
+ * Fetches every playlist from `/me/playlists` one page at a time.
+ * Parallel paging was removed — it bursts the Web API and triggers 429 rate limits.
  */
 export async function getAllUserPlaylists(accessToken: string) {
   const limit = 50;
@@ -157,16 +179,9 @@ export async function getAllUserPlaylists(accessToken: string) {
 
   if (typeof total === "number" && total > items.length) {
     const pageCount = Math.ceil(total / limit);
-    const extraPages = pageCount - 1;
-    if (extraPages > 0) {
-      const pages = await Promise.all(
-        Array.from({ length: extraPages }, (_, i) =>
-          getUserPlaylists(accessToken, (i + 1) * limit, limit),
-        ),
-      );
-      for (const p of pages) {
-        items.push(...(p.items ?? []));
-      }
+    for (let page = 1; page < pageCount; page++) {
+      const p = await getUserPlaylists(accessToken, page * limit, limit);
+      items.push(...(p.items ?? []));
     }
     return { ...first, items };
   }

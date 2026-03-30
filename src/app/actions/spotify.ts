@@ -74,7 +74,8 @@ export async function fetchSavedTracksTotal() {
   return (data?.total as number) ?? 0;
 }
 
-const ENRICH_TOTALS_CHUNK = 12;
+/** Keep small to avoid 429 when many playlists lack `tracks.total` in list responses. */
+const ENRICH_TOTALS_CHUNK = 6;
 
 async function enrichPlaylistItemsWithTotals(
   token: string,
@@ -109,10 +110,14 @@ async function enrichPlaylistItemsWithTotals(
         }
       }),
     );
+    /* Small gap between batches so we do not stack bursts on top of list paging. */
+    if (i + ENRICH_TOTALS_CHUNK < sparse.length) {
+      await new Promise((r) => setTimeout(r, 80));
+    }
   }
 }
 
-/** One round-trip for library: liked count + all playlists (parallel Spotify paging + batched enrichment). */
+/** One server action for library: sequential Spotify calls where possible to reduce 429s. */
 export async function fetchLibraryData() {
   const session = await auth();
   if (!session?.accessToken) throw new Error("Not authenticated");
@@ -124,17 +129,25 @@ export async function fetchLibraryData() {
   }
   const token = session.accessToken;
 
-  const [savedPreview, bundle] = await Promise.all([
-    getSavedTracks(token, 0, 1),
-    getAllUserPlaylists(token),
-  ]);
+  try {
+    const savedPreview = await getSavedTracks(token, 0, 1);
+    const bundle = await getAllUserPlaylists(token);
 
-  const likedTotal = (savedPreview?.total as number) ?? 0;
-  const raw = bundle.items ?? [];
-  const merged = raw.map((p: Record<string, unknown>) => ({ ...p }));
-  await enrichPlaylistItemsWithTotals(token, merged);
+    const likedTotal = (savedPreview?.total as number) ?? 0;
+    const raw = bundle.items ?? [];
+    const merged = raw.map((p: Record<string, unknown>) => ({ ...p }));
+    await enrichPlaylistItemsWithTotals(token, merged);
 
-  return { likedTotal, playlists: merged };
+    return { likedTotal, playlists: merged };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes("Spotify 429")) {
+      throw new Error(
+        "Spotify rate limited this request — wait a minute and tap retry, or try again with fewer tabs open.",
+      );
+    }
+    throw e;
+  }
 }
 
 export async function fetchUserPlaylists(offset = 0, limit = 50) {
