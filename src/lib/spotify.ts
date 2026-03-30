@@ -145,15 +145,56 @@ export async function getUserPlaylists(accessToken: string, offset = 0, limit = 
   }
 }
 
+/**
+ * Fetches every playlist from `/me/playlists` with minimal round-trips:
+ * when `total` is present, remaining pages are requested in parallel; otherwise follows `next` sequentially.
+ */
+export async function getAllUserPlaylists(accessToken: string) {
+  const limit = 50;
+  const first = await getUserPlaylists(accessToken, 0, limit);
+  const items = [...(first.items ?? [])];
+  const total = first.total;
+
+  if (typeof total === "number" && total > items.length) {
+    const pageCount = Math.ceil(total / limit);
+    const extraPages = pageCount - 1;
+    if (extraPages > 0) {
+      const pages = await Promise.all(
+        Array.from({ length: extraPages }, (_, i) =>
+          getUserPlaylists(accessToken, (i + 1) * limit, limit),
+        ),
+      );
+      for (const p of pages) {
+        items.push(...(p.items ?? []));
+      }
+    }
+    return { ...first, items };
+  }
+
+  let cur = first;
+  while (cur.next) {
+    const offset = items.length;
+    cur = await getUserPlaylists(accessToken, offset, limit);
+    items.push(...(cur.items ?? []));
+    if (!cur.items?.length) break;
+  }
+  return { ...first, items };
+}
+
 export async function getPlaylistDetails(accessToken: string, playlistId: string) {
-  const narrow = `${API}/playlists/${encodeURIComponent(playlistId)}?fields=id,name,description,images,owner(display_name),tracks(total)`;
+  const narrowParams = new URLSearchParams({
+    fields: "id,name,description,images,owner(display_name),tracks(total)",
+    market: "from_token",
+  });
+  const narrow = `${API}/playlists/${encodeURIComponent(playlistId)}?${narrowParams}`;
   try {
     const res = await spotifyFetch(narrow, accessToken);
     return res.json();
   } catch (e) {
     if (isSpotify403(e)) {
+      const fallback = new URLSearchParams({ market: "from_token" });
       const res = await spotifyFetch(
-        `${API}/playlists/${encodeURIComponent(playlistId)}`,
+        `${API}/playlists/${encodeURIComponent(playlistId)}?${fallback}`,
         accessToken,
       );
       return res.json();
@@ -182,6 +223,8 @@ export async function getPlaylistTracks(accessToken: string, playlistId: string,
     new URLSearchParams({
       offset: String(o),
       limit: String(l),
+      /** Required for many playlists (especially not owned by the user) so tracks resolve to playable catalog rows instead of null. */
+      market: "from_token",
     });
 
   // 1) Current API: /items

@@ -8,6 +8,7 @@ import {
   checkSavedTracks,
   getCurrentUser,
   getUserPlaylists,
+  getAllUserPlaylists,
   getPlaylistDetails,
   getPlaylistTracks,
 } from "@/lib/spotify";
@@ -73,11 +74,12 @@ export async function fetchSavedTracksTotal() {
   return (data?.total as number) ?? 0;
 }
 
-export async function fetchUserPlaylists(offset = 0, limit = 50) {
-  const token = await getAccessTokenForPlaylists();
-  const data = await getUserPlaylists(token, offset, limit);
-  const items = data.items ?? [];
-  const merged = items.map((p: Record<string, unknown>) => ({ ...p }));
+const ENRICH_TOTALS_CHUNK = 12;
+
+async function enrichPlaylistItemsWithTotals(
+  token: string,
+  merged: Record<string, unknown>[],
+) {
   const sparse = merged
     .map((p: Record<string, unknown>, index: number) => ({ p, index }))
     .filter(
@@ -85,11 +87,10 @@ export async function fetchUserPlaylists(offset = 0, limit = 50) {
         typeof row.p.id === "string" &&
         typeof (row.p.tracks as { total?: number } | undefined)?.total !== "number",
     );
-  if (sparse.length === 0) return { ...data, items: merged };
+  if (sparse.length === 0) return;
 
-  const chunkSize = 6;
-  for (let i = 0; i < sparse.length; i += chunkSize) {
-    const chunk = sparse.slice(i, i + chunkSize);
+  for (let i = 0; i < sparse.length; i += ENRICH_TOTALS_CHUNK) {
+    const chunk = sparse.slice(i, i + ENRICH_TOTALS_CHUNK);
     await Promise.all(
       chunk.map(async (row: { p: Record<string, unknown>; index: number }) => {
         const { p, index } = row;
@@ -109,6 +110,39 @@ export async function fetchUserPlaylists(offset = 0, limit = 50) {
       }),
     );
   }
+}
+
+/** One round-trip for library: liked count + all playlists (parallel Spotify paging + batched enrichment). */
+export async function fetchLibraryData() {
+  const session = await auth();
+  if (!session?.accessToken) throw new Error("Not authenticated");
+  if (session.error === "RefreshTokenError") throw new Error("TokenExpired");
+  if (!hasPlaylistReadScopes(session.scope)) {
+    throw new Error(
+      "Spotify playlist access missing. Sign out and connect again to approve playlist permissions.",
+    );
+  }
+  const token = session.accessToken;
+
+  const [savedPreview, bundle] = await Promise.all([
+    getSavedTracks(token, 0, 1),
+    getAllUserPlaylists(token),
+  ]);
+
+  const likedTotal = (savedPreview?.total as number) ?? 0;
+  const raw = bundle.items ?? [];
+  const merged = raw.map((p: Record<string, unknown>) => ({ ...p }));
+  await enrichPlaylistItemsWithTotals(token, merged);
+
+  return { likedTotal, playlists: merged };
+}
+
+export async function fetchUserPlaylists(offset = 0, limit = 50) {
+  const token = await getAccessTokenForPlaylists();
+  const data = await getUserPlaylists(token, offset, limit);
+  const items = data.items ?? [];
+  const merged = items.map((p: Record<string, unknown>) => ({ ...p }));
+  await enrichPlaylistItemsWithTotals(token, merged);
   return { ...data, items: merged };
 }
 

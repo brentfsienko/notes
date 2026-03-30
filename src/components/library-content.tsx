@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
-import { fetchUserPlaylists, fetchSavedTracksTotal } from "@/app/actions/spotify";
+import { fetchLibraryData } from "@/app/actions/spotify";
 
 interface Playlist {
   id: string;
@@ -17,13 +17,9 @@ interface Playlist {
 
 type SortKey = "recent" | "name-asc" | "name-desc" | "owner";
 type ViewMode = "list" | "grid";
-/** Which playlists to show: everything in your Spotify library, only yours, or only followed / other creators. */
-type PlaylistScope = "all" | "mine" | "others";
 
 const SORT_STORAGE = "oto-library-sort";
 const VIEW_STORAGE = "oto-library-view";
-const SCOPE_STORAGE = "oto-library-playlist-scope";
-const LEGACY_MINE_ONLY_STORAGE = "oto-library-mine-only";
 
 function ListIcon({ className }: { className?: string }) {
   return (
@@ -64,7 +60,6 @@ export function LibraryContent() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("recent");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
-  const [playlistScope, setPlaylistScope] = useState<PlaylistScope>("all");
 
   useEffect(() => {
     try {
@@ -74,12 +69,6 @@ export function LibraryContent() {
       }
       const v = localStorage.getItem(VIEW_STORAGE);
       if (v === "list" || v === "grid") setViewMode(v);
-      const scope = localStorage.getItem(SCOPE_STORAGE);
-      if (scope === "all" || scope === "mine" || scope === "others") {
-        setPlaylistScope(scope);
-      } else if (localStorage.getItem(LEGACY_MINE_ONLY_STORAGE) === "1") {
-        setPlaylistScope("mine");
-      }
     } catch {
       /* ignore */
     }
@@ -101,36 +90,15 @@ export function LibraryContent() {
     }
   }, [viewMode]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(SCOPE_STORAGE, playlistScope);
-    } catch {
-      /* ignore */
-    }
-  }, [playlistScope]);
-
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [total] = await Promise.all([
-        fetchSavedTracksTotal(),
-        (async () => {
-          const merged: Playlist[] = [];
-          let offset = 0;
-          for (;;) {
-            const playlistData = await fetchUserPlaylists(offset, 50);
-            const items = (playlistData.items ?? []).filter(
-              (p: Playlist) => p && p.id && p.name,
-            ) as Playlist[];
-            merged.push(...items);
-            if (!playlistData.next) break;
-            offset += 50;
-          }
-          setPlaylists(merged);
-        })(),
-      ]);
-      setLikedTotal(total);
+      const { likedTotal, playlists: rows } = await fetchLibraryData();
+      setLikedTotal(likedTotal);
+      setPlaylists(
+        (rows as Playlist[]).filter((p) => p && p.id && p.name),
+      );
     } catch (e) {
       console.error("Failed to load library:", e);
       const msg = e instanceof Error ? e.message : String(e);
@@ -144,25 +112,15 @@ export function LibraryContent() {
     load();
   }, [load]);
 
-  const scopedPlaylists = useMemo(() => {
-    if (!mySpotifyId || playlistScope === "all") return playlists;
-    if (playlistScope === "mine") {
-      return playlists.filter((p) => p.owner?.id === mySpotifyId);
-    }
-    return playlists.filter(
-      (p) => p.owner?.id && p.owner.id !== mySpotifyId,
-    );
-  }, [playlists, playlistScope, mySpotifyId]);
-
   const filtered = useMemo(() => {
-    if (!search.trim()) return scopedPlaylists;
+    if (!search.trim()) return playlists;
     const q = search.toLowerCase();
-    return scopedPlaylists.filter(
+    return playlists.filter(
       (p) =>
         p.name.toLowerCase().includes(q) ||
         (p.owner?.display_name ?? "").toLowerCase().includes(q),
     );
-  }, [scopedPlaylists, search]);
+  }, [playlists, search]);
 
   const sortedPlaylists = useMemo(() => {
     if (sortBy === "recent") return filtered;
@@ -271,24 +229,6 @@ export function LibraryContent() {
               <GridIcon className="h-5 w-5" />
             </button>
           </div>
-        </div>
-        <div className="mt-2 space-y-1">
-          <label className="sr-only" htmlFor="library-playlist-scope">
-            which playlists to show
-          </label>
-          <select
-            id="library-playlist-scope"
-            value={playlistScope}
-            onChange={(e) => setPlaylistScope(e.target.value as PlaylistScope)}
-            className="w-full rounded-lg border border-border bg-elevated py-2 pl-3 pr-8 text-xs lowercase text-fg focus:outline-none focus:ring-1 focus:ring-accent/30"
-          >
-            <option value="all">all playlists (yours + saved from others)</option>
-            <option value="mine">only playlists I created</option>
-            <option value="others">saved from other creators</option>
-          </select>
-          <p className="px-0.5 text-[11px] leading-snug text-faint lowercase">
-            playlists you follow or save from someone else show up in your spotify library — pick &ldquo;saved from other creators&rdquo; to focus on those, or &ldquo;all&rdquo; to browse everything.
-          </p>
         </div>
       </div>
 
@@ -404,17 +344,6 @@ export function LibraryContent() {
             ))}
           </div>
         )}
-
-        {sortedPlaylists.length === 0 &&
-          !search.trim() &&
-          playlistScope !== "all" &&
-          playlists.length > 0 && (
-            <p className="px-4 py-6 text-center text-sm text-muted lowercase">
-              {playlistScope === "mine"
-                ? "no playlists you created in your library yet."
-                : "no playlists from other creators in your library yet — follow or save a playlist in spotify first."}
-            </p>
-          )}
 
         {!showLiked && filtered.length === 0 && search.trim() && (
           <p className="px-4 py-8 text-center text-sm text-muted">
